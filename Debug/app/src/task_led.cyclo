@@ -1,0 +1,4 @@
+../app/src/task_led.c:68:20:ledColorToStr	5
+../app/src/task_led.c:80:13:task_	6
+../app/src/task_led.c:119:6:ao_led_send	1
+../app/src/task_led.c:124:6:ao_led_init	3

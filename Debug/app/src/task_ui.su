@@ -1,0 +1,4 @@
+../app/src/task_ui.c:80:13:callback_	16	static
+../app/src/task_ui.c:85:13:task_	56	static
+../app/src/task_ui.c:133:6:ao_ui_send_event	16	static
+../app/src/task_ui.c:138:6:ao_ui_init	24	static
