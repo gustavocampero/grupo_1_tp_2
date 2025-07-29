@@ -59,15 +59,7 @@ typedef enum
   AO_LED_MESSAGE__N,
 } ao_led_action_t;
 
-typedef void (*ao_led_cb_t)(int);
-
-typedef struct
-{
-    int id;
-    ao_led_cb_t callback;
-    ao_led_action_t action;
-    int value;
-} ao_led_message_t;
+typedef void (*ao_led_cb_t)(void*);
 
 typedef enum
 {
@@ -78,17 +70,21 @@ typedef enum
 
 typedef struct
 {
+    int id;
+    ao_led_cb_t callback;
+    ao_led_action_t action;
+    int value;
     ao_led_color color;
-    QueueHandle_t hqueue;
-} ao_led_handle_t;
+} ao_led_message_t;
+
+
 
 /********************** external data declaration ****************************/
 
 /********************** external functions declaration ***********************/
 
-bool ao_led_send(ao_led_handle_t* hao, ao_led_message_t* msg);
-
-void ao_led_init(ao_led_handle_t* hao, ao_led_color color);
+bool ao_led_send(ao_led_message_t* msg);
+void ao_led_init();
 
 /********************** End of CPP guard *************************************/
 #ifdef __cplusplus

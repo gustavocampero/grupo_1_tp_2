@@ -49,7 +49,7 @@
 
 #define TASK_PERIOD_MS_           (1000)
 
-#define QUEUE_LENGTH_            (1)
+#define QUEUE_LENGTH_            (10)
 #define QUEUE_ITEM_SIZE_         (sizeof(ao_led_message_t))
 
 /********************** internal data declaration ****************************/
@@ -60,6 +60,8 @@
 
 static GPIO_TypeDef* led_port_[] = {LED_RED_PORT, LED_GREEN_PORT,  LED_BLUE_PORT};
 static uint16_t led_pin_[] = {LED_RED_PIN,  LED_GREEN_PIN, LED_BLUE_PIN };
+static bool task_led_running = false; // sólo 1 hilo para manejar los leds
+static QueueHandle_t hqueue;
 
 /********************** external data definition *****************************/
 
@@ -79,64 +81,78 @@ static const char* ledColorToStr(ao_led_color color)
 
 static void task_(void *argument)
 {
-  ao_led_handle_t* hao = (ao_led_handle_t*)argument;
+  (void)argument;
   while (true)
   {
-    ao_led_message_t msg;
-    if (pdPASS == xQueueReceive(hao->hqueue, &msg, portMAX_DELAY))
+    ao_led_message_t* msg;
+    if (pdPASS == xQueueReceive(hqueue, (void*)&msg, 0))
     {
-      switch (msg.action) {
+      switch (msg->action) {
         case AO_LED_MESSAGE_ON:
-          HAL_GPIO_WritePin(led_port_[hao->color], led_pin_[hao->color], GPIO_PIN_SET);
-          LOGGER_INFO("LED %s ENCENDIDO", ledColorToStr(hao->color));
-          msg.callback(msg.id);
+          HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_SET);
+          LOGGER_INFO("				LED %s ENCENDIDO", ledColorToStr(msg->color));
+          msg->callback((void*)msg);
           break;
 
         case AO_LED_MESSAGE_OFF:
-          HAL_GPIO_WritePin(led_port_[hao->color], led_pin_[hao->color], GPIO_PIN_RESET);
-          LOGGER_INFO("LED %s APAGADO", ledColorToStr(hao->color));
-          msg.callback(msg.id);
+          HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_RESET);
+          LOGGER_INFO("				LED %s APAGADO", ledColorToStr(msg->color));
+          msg->callback((void*)msg);
           break;
 
         case AO_LED_MESSAGE_BLINK:
-          HAL_GPIO_WritePin(led_port_[hao->color], led_pin_[hao->color], GPIO_PIN_SET);
-          LOGGER_INFO("LED %s ENCENDIDO", ledColorToStr(hao->color));
-          vTaskDelay((TickType_t)((msg.value) / portTICK_PERIOD_MS));
-          HAL_GPIO_WritePin(led_port_[hao->color], led_pin_[hao->color], GPIO_PIN_RESET);
-          LOGGER_INFO("LED %s APAGADO", ledColorToStr(hao->color));
-          msg.callback(msg.id);
+          HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_SET);
+          LOGGER_INFO("				LED %s ENCENDIDO", ledColorToStr(msg->color));
+          vTaskDelay((TickType_t)((msg->value) / portTICK_PERIOD_MS));
+          HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_RESET);
+          LOGGER_INFO("				LED %s APAGADO", ledColorToStr(msg->color));
+          msg->callback((void*)msg);
           break;
 
         default:
           break;
       }
+    }else{
+    	LOGGER_INFO("Borrando tarea leds");
+    	task_led_running = false;
+    	vTaskDelete(NULL);
     }
   }
 }
 
-/********************** external functions definition ************************/
-
-bool ao_led_send(ao_led_handle_t* hao, ao_led_message_t* msg)
-{
-  return (pdPASS == xQueueSend(hao->hqueue, (void*)msg, 0));
+BaseType_t ao_led_create_task(){
+  return xTaskCreate(task_, "task_ao_led", 128, NULL, tskIDLE_PRIORITY, NULL);
 }
 
-void ao_led_init(ao_led_handle_t* hao, ao_led_color color)
+/********************** external functions definition ************************/
+
+bool ao_led_send(ao_led_message_t* msg)
 {
-  hao->color = color;
+    bool ret = false;
+	if(xQueueSend(hqueue,(void*)&msg,0) == pdPASS) {
+		if(!task_led_running) {
+			if(ao_led_create_task() != pdPASS) {
+				LOGGER_INFO("ERROR CREANDO TAREA LEDS!");
+			}else {
+				LOGGER_INFO("Tarea Leds creada");
+				task_led_running = true;
+				ret = true;
+			}
+		}else {
+			ret = true;
+		}
+	}
+	return ret;
+}
 
-  hao->hqueue = xQueueCreate(QUEUE_LENGTH_, QUEUE_ITEM_SIZE_);
-  while(NULL == hao->hqueue)
-  {
-    // error
+void ao_led_init()
+{
+  hqueue = xQueueCreate(QUEUE_LENGTH_, QUEUE_ITEM_SIZE_);
+  if(NULL == hqueue){
+	  LOGGER_INFO("ERROR: ao_led_init xQueueCreate");
+	  while (true){/*ERROR*/}
   }
 
-  BaseType_t status;
-  status = xTaskCreate(task_, "task_ao_led", 128, (void* const)hao, tskIDLE_PRIORITY, NULL);
-  while (pdPASS != status)
-  {
-    // error
-  }
 }
 
 /********************** end of file ******************************************/

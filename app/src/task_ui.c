@@ -50,6 +50,7 @@
 
 #include "task_ui.h"
 #include "task_led.h"
+#include "memory_pool.h"
 
 /********************** macros and definitions *******************************/
 
@@ -71,77 +72,74 @@ typedef struct
 /********************** internal data definition *****************************/
 
 static ao_ui_handle_t hao_;
+static int msg_wip_ = 0;
+static memory_pool_t memory_pool_;
+static uint8_t memory_pool_memory_[MEMORY_POOL_SIZE(MEMORY_POOL_NBLOCKS, MEMORY_POOL_BLOCK_SIZE)];
 
 /********************** external data definition *****************************/
 
-extern ao_led_handle_t led_red;
-extern ao_led_handle_t led_green;
-extern ao_led_handle_t led_blue;
 
-static memory_pool_t memory_pool_;
-static uint8_t memory_pool_memory_[MEMORY_POOL_SIZE(MEMORY_POOL_NBLOCKS, MEMORY_POOL_BLOCK_SIZE)];
 
 memory_pool_t* const hmp = &memory_pool_;
 
 /********************** internal functions definition ************************/
 
-static void callback_(ao_led_message_t* pmsg)
+static void callback_(void* ptr)
 {
-	memory_pool_block_put(hmp, (void*)pmsg);
+	memory_pool_block_put(hmp, (void*)ptr);
     LOGGER_INFO("Memoria liberada desde button");
-    msg_wip_--;
-    LOGGER_INFO("Mensajes en proceso: %d", msg_wip_);
-
+    LOGGER_INFO("Mensajes en proceso: %d", --msg_wip_);
 }
 
-static void initLed(ao_led_handle_t *hand)
+static void sendmsg(ao_led_color color ,ao_led_action_t action, int value)
 {
-	ao_led_message_t* led_msg_init = (ao_led_message_t*)memory_pool_block_get(hmp);
-	if(NULL != pmsg)
+	static int id = 0;
+	ao_led_message_t* led_msg = (ao_led_message_t*)memory_pool_block_get(hmp);
+	if(NULL != led_msg)
 	{
-	  led_msg_init->callback = callback_;
-	  led_msg_init->id = id++;
-	  led_msg_init->action = AO_LED_MESSAGE_OFF;
-	  led_msg_init->value = 1000;
-	  ao_led_send(hand, &led_msg_init);
+	  led_msg->callback = callback_;
+	  led_msg->id = id++;
+	  led_msg->action = action;
+	  led_msg->value = value;
+	  led_msg->color = color;
+	  ao_led_send(led_msg);
+	  msg_wip_++;
 	}
 }
 
 static void task_(void *argument)
 {
   memory_pool_init(hmp, memory_pool_memory_, MEMORY_POOL_NBLOCKS, MEMORY_POOL_BLOCK_SIZE);
-  int id = 0;
 
-  initLed(&led_red);
-  initLed(&led_green);
-  initLed(&led_blue);
+  sendmsg(AO_LED_COLOR_RED   , AO_LED_MESSAGE_OFF, 0);
+  sendmsg(AO_LED_COLOR_GREEN , AO_LED_MESSAGE_OFF, 0);
+  sendmsg(AO_LED_COLOR_BLUE  , AO_LED_MESSAGE_OFF, 0);
+
+  msg_event_t event_msg = {0};
 
   while (true)
   {
-
-    ao_led_message_t led_msg;
-    led_msg.callback = callback_;
-    led_msg.id = ++id;
-    led_msg.action = AO_LED_MESSAGE_BLINK;
-    led_msg.value = 1000;
-
-    msg_event_t event_msg;
-
     if (pdPASS == xQueueReceive(hao_.hqueue, &event_msg, portMAX_DELAY))
     {
       switch (event_msg)
       {
         case MSG_EVENT_BUTTON_PULSE:
           LOGGER_INFO("led red");
-          ao_led_send(&led_red, &led_msg);
+          sendmsg(AO_LED_COLOR_BLUE  , AO_LED_MESSAGE_OFF, 0);
+          sendmsg(AO_LED_COLOR_GREEN , AO_LED_MESSAGE_OFF, 0);
+          sendmsg(AO_LED_COLOR_RED   , AO_LED_MESSAGE_ON , 0);
           break;
         case MSG_EVENT_BUTTON_SHORT:
           LOGGER_INFO("led green");
-          ao_led_send(&led_green, &led_msg);
+          sendmsg(AO_LED_COLOR_BLUE  , AO_LED_MESSAGE_OFF, 0);
+          sendmsg(AO_LED_COLOR_RED   , AO_LED_MESSAGE_OFF, 0);
+          sendmsg(AO_LED_COLOR_GREEN , AO_LED_MESSAGE_ON , 0);
           break;
         case MSG_EVENT_BUTTON_LONG:
           LOGGER_INFO("led blue");
-          ao_led_send(&led_blue, &led_msg);
+          sendmsg(AO_LED_COLOR_RED   , AO_LED_MESSAGE_OFF, 0);
+          sendmsg(AO_LED_COLOR_GREEN , AO_LED_MESSAGE_OFF, 0);
+          sendmsg(AO_LED_COLOR_BLUE  , AO_LED_MESSAGE_ON , 0);
           break;
         default:
           break;
