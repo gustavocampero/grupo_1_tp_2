@@ -117,6 +117,7 @@ static void task_(void *argument)
     	task_led_running = false;
     	vTaskDelete(NULL);
     }
+    vTaskDelay((TickType_t)(50 / portTICK_PERIOD_MS)); // Si no, la button_task se bloquea hasta que se termine de procesar la accion
   }
 }
 

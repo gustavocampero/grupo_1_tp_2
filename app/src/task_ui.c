@@ -102,6 +102,7 @@ static void sendmsg(ao_led_color color ,ao_led_action_t action, int value)
 	  led_msg->action = action;
 	  led_msg->value = value;
 	  led_msg->color = color;
+	  vTaskDelay((TickType_t)(50 / portTICK_PERIOD_MS)); // Si no, la button_task se bloquea hasta que se termine de procesar la accion
 	  ao_led_send(led_msg);
 	  msg_wip_++;
 	}

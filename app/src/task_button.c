@@ -92,6 +92,7 @@ static button_type_t button_process_state_(bool value)
   if(value)
   {
     button.counter += BUTTON_PERIOD_MS_;
+    // LOGGER_INFO("\t\t(%d) BOTON PRESIONADO - %d ms", (int)HAL_GetTick(),(int)button.counter);
   }
   else
   {
