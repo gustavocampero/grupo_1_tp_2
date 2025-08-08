@@ -72,6 +72,21 @@ extern "C" {
     LOGGER_LOG(__VA_ARGS__);\
     LOGGER_LOG("\n");
 
+#define LOGGER_ERROR(...)\
+    LOGGER_LOG("[ERROR] ");\
+    LOGGER_LOG(__VA_ARGS__);\
+    LOGGER_LOG("\n");
+
+#define LOGGER_DEBUG(...)\
+    LOGGER_LOG("[DEBUG] ");\
+    LOGGER_LOG(__VA_ARGS__);\
+    LOGGER_LOG("\n");
+
+#define LOGGER_WARNING(...)\
+    LOGGER_LOG("[WARNING] ");\
+    LOGGER_LOG(__VA_ARGS__);\
+    LOGGER_LOG("\n");
+
 #define GET_NAME(var)  #var
 
 /********************** typedef **********************************************/

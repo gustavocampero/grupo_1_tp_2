@@ -55,24 +55,28 @@
 
 /********************** external data declaration *****************************/
 
-
 /********************** external functions definition ************************/
 void app_init(void)
 {
-  ao_ui_init();
-  ao_led_init();
-
   BaseType_t status;
 
-  status = xTaskCreate(task_button, "task_button", 128, NULL, 1, NULL);
-  while (pdPASS != status)
+  // Primero se inicializa el UI ya que controla los LEDs
+  LOGGER_INFO("Initializing UI...");
+  ao_ui_init();
+
+  // Crear la tarea de botón con alta prioridad para una respuesta rápida ya que no será un OA
+  LOGGER_INFO("Creating button task...");
+  status = xTaskCreate(task_button, "task_button", 128, NULL, tskIDLE_PRIORITY + 2, NULL);
+  if (pdPASS != status)
   {
-    // error
+    LOGGER_ERROR("Failed to create button task");
+    while(1);
   }
 
-  LOGGER_INFO("app init");
-
+  LOGGER_INFO("Initializing cycle counter...");
   cycle_counter_init();
+  
+  LOGGER_INFO("Application initialization complete");
 }
 
 /********************** end of file ******************************************/

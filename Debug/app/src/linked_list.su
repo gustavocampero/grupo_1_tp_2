@@ -1,0 +1,5 @@
+../app/src/linked_list.c:57:6:linked_list_init	16	static
+../app/src/linked_list.c:64:6:linked_list_node_init	16	static
+../app/src/linked_list.c:70:21:linked_list_node_remove	24	static
+../app/src/linked_list.c:95:6:linked_list_node_add	16	static
+../app/src/linked_list.c:110:21:linked_list_node_remove_by_id	32	static

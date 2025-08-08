@@ -47,7 +47,8 @@
 
 /********************** macros and definitions *******************************/
 
-#define TASK_PERIOD_MS_           (1000)
+#define LED_TASK_PERIOD_MS_       (1000)
+#define TASK_INACTIVITY_TIMEOUT_MS_ (500)  // Timeout para auto-eliminarse
 
 #define QUEUE_LENGTH_            (10)
 #define QUEUE_ITEM_SIZE_         (sizeof(ao_led_message_t))
@@ -60,14 +61,12 @@
 
 static GPIO_TypeDef* led_port_[] = {LED_RED_PORT, LED_GREEN_PORT,  LED_BLUE_PORT};
 static uint16_t led_pin_[] = {LED_RED_PIN,  LED_GREEN_PIN, LED_BLUE_PIN };
-static bool task_led_running = false; // sólo 1 hilo para manejar los leds
-static QueueHandle_t hqueue;
 
 /********************** external data definition *****************************/
 
 /********************** internal functions definition ************************/
 
-static const char* ledColorToStr(ao_led_color color)
+const char* ledColorToStr(ao_led_color color)
 {
 	switch(color)
 	{
@@ -81,79 +80,131 @@ static const char* ledColorToStr(ao_led_color color)
 
 static void task_(void *argument)
 {
-  (void)argument;
+  ao_led_handle_t* hao = (ao_led_handle_t*)argument;
+  if (NULL == hao) {
+    LOGGER_ERROR("LED task iniciada con handle nulo");
+    return;
+  }
+
+  LOGGER_INFO("Iniciando tarea LED %s", ledColorToStr(hao->color));
+  
   while (true)
   {
     ao_led_message_t* msg;
-    if (pdPASS == xQueueReceive(hqueue, (void*)&msg, 0))
+    if (pdPASS == xQueueReceive(hao->hqueue, (void*)&msg, pdMS_TO_TICKS(TASK_INACTIVITY_TIMEOUT_MS_)))
     {
-      switch (msg->action) {
+      // Inicializamos asumiendo éxito
+      msg->status = AO_LED_STATUS_OK;
+
+      // Validación básica del mensaje
+      if (NULL == msg || NULL == msg->callback) {
+        LOGGER_ERROR("LED %s: Mensaje invalido recibido", ledColorToStr(hao->color));
+        if (msg != NULL && msg->callback != NULL) {
+            msg->callback(msg->data.id, AO_LED_STATUS_INVALID_PARAMS);
+        }
+        continue;
+      }
+
+      LOGGER_DEBUG("LED %s: Mensaje recibido [ID:%d, Action:%d]", 
+                  ledColorToStr(hao->color), msg->data.id, msg->data.action);
+
+      switch (msg->data.action) {
         case AO_LED_MESSAGE_ON:
-          HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_SET);
-          LOGGER_INFO("				LED %s ENCENDIDO", ledColorToStr(msg->color));
-          msg->callback((void*)msg);
+          HAL_GPIO_WritePin(led_port_[hao->color], led_pin_[hao->color], GPIO_PIN_SET);
+          LOGGER_INFO("LED %s ENCENDIDO", ledColorToStr(hao->color));
           break;
 
         case AO_LED_MESSAGE_OFF:
-          HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_RESET);
-          LOGGER_INFO("				LED %s APAGADO", ledColorToStr(msg->color));
-          msg->callback((void*)msg);
+          HAL_GPIO_WritePin(led_port_[hao->color], led_pin_[hao->color], GPIO_PIN_RESET);
+          LOGGER_INFO("LED %s APAGADO", ledColorToStr(hao->color));
           break;
 
         case AO_LED_MESSAGE_BLINK:
-          HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_SET);
-          LOGGER_INFO("				LED %s ENCENDIDO", ledColorToStr(msg->color));
-          vTaskDelay((TickType_t)((msg->value) / portTICK_PERIOD_MS));
-          HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_RESET);
-          LOGGER_INFO("				LED %s APAGADO", ledColorToStr(msg->color));
-          msg->callback((void*)msg);
+          if (msg->data.value <= 0) {
+            msg->status = AO_LED_STATUS_INVALID_PARAMS;
+            LOGGER_WARNING("LED %s: Tiempo de parpadeo invalido (%d)", ledColorToStr(hao->color), msg->data.value);
+            break;
+          }
+
+          LOGGER_INFO("LED %s: Iniciando parpadeo por %dms", ledColorToStr(hao->color), msg->data.value);
+          HAL_GPIO_WritePin(led_port_[hao->color], led_pin_[hao->color], GPIO_PIN_SET);
+          vTaskDelay((TickType_t)((msg->data.value) / portTICK_PERIOD_MS));
+          HAL_GPIO_WritePin(led_port_[hao->color], led_pin_[hao->color], GPIO_PIN_RESET);
           break;
 
         default:
+          msg->status = AO_LED_STATUS_INVALID_ACTION;
+          LOGGER_ERROR("LED %s: Accion desconocida recibida (%d)", ledColorToStr(hao->color), msg->data.action);
           break;
       }
-    }else{
-    	LOGGER_INFO("Borrando tarea leds");
-    	task_led_running = false;
-    	vTaskDelete(NULL);
+      
+      // Notificamos el resultado
+      msg->callback(msg->data.id, msg->status);
     }
-    vTaskDelay((TickType_t)(50 / portTICK_PERIOD_MS)); // Si no, la button_task se bloquea hasta que se termine de procesar la accion
+    else {
+      // No hay mensajes después del timeout, auto-destruir
+      LOGGER_INFO("LED %s: Sin mensajes por %dms, auto-destruyendo", 
+                 ledColorToStr(hao->color), TASK_INACTIVITY_TIMEOUT_MS_);
+      hao->is_active = false;
+      hao->task_handle = NULL;
+      vTaskDelete(NULL);
+      break;
+    }
   }
-}
-
-BaseType_t ao_led_create_task(){
-  return xTaskCreate(task_, "task_ao_led", 128, NULL, tskIDLE_PRIORITY, NULL);
 }
 
 /********************** external functions definition ************************/
 
-bool ao_led_send(ao_led_message_t* msg)
+bool ao_led_send(ao_led_handle_t* hao, ao_led_message_t* msg)
 {
-    bool ret = false;
-	if(xQueueSend(hqueue,(void*)&msg,0) == pdPASS) {
-		if(!task_led_running) {
-			if(ao_led_create_task() != pdPASS) {
-				LOGGER_INFO("ERROR CREANDO TAREA LEDS!");
-			}else {
-				LOGGER_INFO("Tarea Leds creada");
-				task_led_running = true;
-				ret = true;
-			}
-		}else {
-			ret = true;
-		}
-	}
-	return ret;
-}
-
-void ao_led_init()
-{
-  hqueue = xQueueCreate(QUEUE_LENGTH_, QUEUE_ITEM_SIZE_);
-  if(NULL == hqueue){
-	  LOGGER_INFO("ERROR: ao_led_init xQueueCreate");
-	  while (true){/*ERROR*/}
+  if (NULL == hao || NULL == msg || NULL == msg->callback) {
+    LOGGER_ERROR("ao_led_send: Parametros invalidos");
+    return false;
   }
 
+  if (msg->data.action >= AO_LED_MESSAGE__N) {
+    LOGGER_ERROR("ao_led_send: Accion invalida (%d)", msg->data.action);
+    return false;
+  }
+
+  if (msg->data.action == AO_LED_MESSAGE_BLINK && msg->data.value <= 0) {
+    LOGGER_ERROR("ao_led_send: Tiempo de parpadeo invalido (%d)", msg->data.value);
+    return false;
+  }
+
+  // Inicializamos el status
+  msg->status = AO_LED_STATUS_OK;
+
+  return (pdPASS == xQueueSend(hao->hqueue, (void*)msg, 0));
+}
+
+void ao_led_init(ao_led_handle_t* hao, ao_led_color color)
+{
+  hao->color = color;
+  hao->is_active = false;
+  hao->task_handle = NULL;
+
+  hao->hqueue = xQueueCreate(QUEUE_LENGTH_, QUEUE_ITEM_SIZE_);
+  while(NULL == hao->hqueue)
+  {
+    // Error: No se pudo crear la cola del LED
+    LOGGER_ERROR("LED %s: Error creando cola", ledColorToStr(hao->color));
+  }
+}
+
+BaseType_t ao_led_start_task(ao_led_handle_t* hao)
+{
+  if(hao->is_active) {
+    return pdPASS; // Ya está activa
+  }
+
+  BaseType_t status = xTaskCreate(task_, "task_ao_led", 128, 
+                                (void*)hao, tskIDLE_PRIORITY, &hao->task_handle);
+  if(pdPASS == status) {
+    hao->is_active = true;
+    LOGGER_INFO("LED %s: Tarea creada", ledColorToStr(hao->color));
+  }
+  return status;
 }
 
 /********************** end of file ******************************************/

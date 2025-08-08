@@ -48,12 +48,12 @@
 
 /********************** macros and definitions *******************************/
 
-#define TASK_PERIOD_MS_           (50)
+#define TASK_PERIOD_MS_           (50)    // Período de polling del botón
 
-#define BUTTON_PERIOD_MS_         (TASK_PERIOD_MS_)
-#define BUTTON_PULSE_TIMEOUT_     (200)
-#define BUTTON_SHORT_TIMEOUT_     (1000)
-#define BUTTON_LONG_TIMEOUT_      (2000)
+// Timeouts para detección de tipos de pulsación
+#define BUTTON_PULSE_TIMEOUT_     (200)   // Pulsación rápida: 0-200ms
+#define BUTTON_SHORT_TIMEOUT_     (1000)  // Pulsación corta: 200-1000ms
+#define BUTTON_LONG_TIMEOUT_      (2000)  // Pulsación larga: >1000ms
 
 /********************** internal data declaration ****************************/
 
@@ -62,8 +62,6 @@
 /********************** internal data definition *****************************/
 
 /********************** external data definition *****************************/
-
-extern SemaphoreHandle_t hsem_button;
 
 /********************** internal functions definition ************************/
 
@@ -91,8 +89,7 @@ static button_type_t button_process_state_(bool value)
   button_type_t ret = BUTTON_TYPE_NONE;
   if(value)
   {
-    button.counter += BUTTON_PERIOD_MS_;
-    // LOGGER_INFO("\t\t(%d) BOTON PRESIONADO - %d ms", (int)HAL_GetTick(),(int)button.counter);
+    button.counter += TASK_PERIOD_MS_;
   }
   else
   {
@@ -117,34 +114,47 @@ static button_type_t button_process_state_(bool value)
 
 void task_button(void* argument)
 {
+  // Validar hardware del botón
+  if (HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN) == GPIO_PIN_RESET) {
+    LOGGER_ERROR("Button: Error inicializando hardware");
+    return;
+  }
+
   button_init_();
+  LOGGER_INFO("Button: Tarea iniciada");
 
   while(true)
   {
-    GPIO_PinState button_state;
-    button_state = HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN);
+    GPIO_PinState button_state = HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN);
+    button_type_t button_type = button_process_state_(!button_state);
 
-    button_type_t button_type = BUTTON_TYPE_NONE;
-    button_type = button_process_state_(!button_state);
+    // Procesar evento si hay uno
+    if (button_type != BUTTON_TYPE_NONE) {
+      msg_event_t event;
+      // Evaluar estado del botón
 
-    switch (button_type) {
-      case BUTTON_TYPE_NONE:
-        break;
-      case BUTTON_TYPE_PULSE:
-        LOGGER_INFO("button pulse");
-        ao_ui_send_event(MSG_EVENT_BUTTON_PULSE);
-        break;
-      case BUTTON_TYPE_SHORT:
-        LOGGER_INFO("button short");
-        ao_ui_send_event(MSG_EVENT_BUTTON_SHORT);
-        break;
-      case BUTTON_TYPE_LONG:
-        LOGGER_INFO("button long");
-        ao_ui_send_event(MSG_EVENT_BUTTON_LONG);
-        break;
-      default:
-        LOGGER_INFO("button error");
-        break;
+      switch (button_type) {
+        case BUTTON_TYPE_PULSE:
+          LOGGER_DEBUG("Button: Pulso detectado");
+          event = MSG_EVENT_BUTTON_PULSE;
+          break;
+        case BUTTON_TYPE_SHORT:
+          LOGGER_DEBUG("Button: Pulsación corta detectada");
+          event = MSG_EVENT_BUTTON_SHORT;
+          break;
+        case BUTTON_TYPE_LONG:
+          LOGGER_DEBUG("Button: Pulsación larga detectada");
+          event = MSG_EVENT_BUTTON_LONG;
+          break;
+        default:
+          LOGGER_ERROR("Button: Tipo de pulsación inválido");
+          continue;
+      }
+
+      // Enviar evento a UI
+      if (!ao_ui_send_event(event)) {
+        LOGGER_ERROR("Button: Error enviando evento a UI");
+      }
     }
 
     vTaskDelay((TickType_t)(TASK_PERIOD_MS_ / portTICK_PERIOD_MS));

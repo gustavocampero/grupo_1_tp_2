@@ -59,7 +59,29 @@ typedef enum
   AO_LED_MESSAGE__N,
 } ao_led_action_t;
 
-typedef void (*ao_led_cb_t)(void*);
+typedef enum
+{
+  AO_LED_STATUS_OK,               // La operación se completó exitosamente
+  AO_LED_STATUS_INVALID_PARAMS,   // Los parámetros del mensaje son inválidos
+  AO_LED_STATUS_INVALID_ACTION,   // La acción solicitada es inválida/desconocida
+  AO_LED_STATUS_HARDWARE_ERROR,   // Error al manipular el hardware del LED
+} ao_led_status_t;
+
+typedef void (*ao_led_cb_t)(int id, ao_led_status_t status);
+
+typedef struct
+{
+    int id;
+    ao_led_action_t action;
+    int value;
+} ao_led_data_t;
+
+typedef struct
+{
+    ao_led_data_t data;
+    ao_led_cb_t callback;
+    ao_led_status_t status;       // Resultado de la operación
+} ao_led_message_t;
 
 typedef enum
 {
@@ -70,21 +92,27 @@ typedef enum
 
 typedef struct
 {
-    int id;
-    ao_led_cb_t callback;
-    ao_led_action_t action;
-    int value;
     ao_led_color color;
-} ao_led_message_t;
-
-
+    QueueHandle_t hqueue;           // Cola para mensajes
+    bool is_active;                 // Flag para saber si la tarea está activa
+    TaskHandle_t task_handle;       // Handle de la tarea
+} ao_led_handle_t;
 
 /********************** external data declaration ****************************/
 
 /********************** external functions declaration ***********************/
 
-bool ao_led_send(ao_led_message_t* msg);
-void ao_led_init();
+// Inicializa el handle del LED (sin crear la tarea)
+void ao_led_init(ao_led_handle_t* hao, ao_led_color color);
+
+// Crea la tarea LED si no está activa
+BaseType_t ao_led_start_task(ao_led_handle_t* hao);
+
+// Envía un mensaje al LED
+bool ao_led_send(ao_led_handle_t* hao, ao_led_message_t* msg);
+
+// Función auxiliar para convertir color a string
+const char* ledColorToStr(ao_led_color color);
 
 /********************** End of CPP guard *************************************/
 #ifdef __cplusplus
