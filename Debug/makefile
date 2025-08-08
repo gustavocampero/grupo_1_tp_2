@@ -65,8 +65,8 @@ all: main-build
 main-build: grupo_1_tp_2.elf secondary-outputs
 
 # Tool invocations
-grupo_1_tp_2.elf grupo_1_tp_2.map: $(OBJS) $(USER_OBJS) C:\Users\nacho\Desktop\Postgrado\RTOS\ II\Repo\ TP\grupo_1_tp_2\STM32F446RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "grupo_1_tp_2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\nacho\Desktop\Postgrado\RTOS II\Repo TP\grupo_1_tp_2\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="grupo_1_tp_2.map" -Wl,--gc-sections -static -specs=rdimon.specs --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+grupo_1_tp_2.elf grupo_1_tp_2.map: $(OBJS) $(USER_OBJS) C:\Users\nacho\Desktop\Postgrado\RTOS\ II\grupo_1_tp_2\STM32F446RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "grupo_1_tp_2.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\nacho\Desktop\Postgrado\RTOS II\grupo_1_tp_2\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="grupo_1_tp_2.map" -Wl,--gc-sections -static -specs=rdimon.specs --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

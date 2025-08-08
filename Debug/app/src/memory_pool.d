@@ -44,8 +44,8 @@ app/src/memory_pool.o: ../app/src/memory_pool.c ../Core/Inc/main.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/memory_pool.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/linked_list.h
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/memory_pool.h \
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/linked_list.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
 ../Core/Inc/stm32f4xx_hal_conf.h:
@@ -92,5 +92,5 @@ app/src/memory_pool.o: ../app/src/memory_pool.c ../Core/Inc/main.h \
 ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/memory_pool.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/linked_list.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/memory_pool.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/linked_list.h:

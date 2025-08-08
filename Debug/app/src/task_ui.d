@@ -44,14 +44,14 @@ app/src/task_ui.o: ../app/src/task_ui.c \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/board.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/logger.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/dwt.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/task_ui.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/task_led.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/memory_pool.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/linked_list.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/linked_list.h
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/board.h \
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/logger.h \
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/dwt.h \
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/task_ui.h \
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/task_led.h \
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/memory_pool.h \
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/linked_list.h \
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/linked_list.h
 ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h:
 ../Core/Inc/FreeRTOSConfig.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h:
@@ -98,11 +98,11 @@ app/src/task_ui.o: ../app/src/task_ui.c \
 ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/board.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/logger.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/dwt.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/task_ui.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/task_led.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/memory_pool.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/linked_list.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/linked_list.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/board.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/logger.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/dwt.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/task_ui.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/task_led.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/memory_pool.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/linked_list.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/linked_list.h:

@@ -44,10 +44,10 @@ app/src/task_button.o: ../app/src/task_button.c ../Core/Inc/main.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/board.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/logger.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/dwt.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/task_ui.h
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/board.h \
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/logger.h \
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/dwt.h \
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/task_ui.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
 ../Core/Inc/stm32f4xx_hal_conf.h:
@@ -94,7 +94,7 @@ app/src/task_button.o: ../app/src/task_button.c ../Core/Inc/main.h \
 ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/board.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/logger.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/dwt.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/Repo\ TP/grupo_1_tp_2/app/inc/task_ui.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/board.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/logger.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/dwt.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/task_ui.h:
