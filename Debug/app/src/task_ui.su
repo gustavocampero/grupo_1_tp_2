@@ -1,8 +1,0 @@
-../app/src/task_ui.c:102:26:create_led_message	40	static
-../app/src/task_ui.c:140:13:free_led_message	16	static
-../app/src/task_ui.c:147:13:send_led_on	32	static
-../app/src/task_ui.c:169:13:turn_off_all_leds	24	static
-../app/src/task_ui.c:189:13:led_callback	32	static
-../app/src/task_ui.c:209:13:task_	24	static
-../app/src/task_ui.c:246:6:ao_ui_send_event	16	static
-../app/src/task_ui.c:251:6:ao_ui_init	32	static

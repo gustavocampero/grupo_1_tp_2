@@ -44,9 +44,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/logger.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/dwt.h \
- C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/app.h
+ C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/Project/app/inc/app.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
 ../Core/Inc/stm32f4xx_hal_conf.h:
@@ -93,6 +91,4 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Middlewares/Third_Party/FreeRTOS/Source/include/queue.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/timers.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/logger.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/dwt.h:
-C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/app/inc/app.h:
+C:/Users/nacho/Desktop/Postgrado/RTOS\ II/grupo_1_tp_2/Project/app/inc/app.h:

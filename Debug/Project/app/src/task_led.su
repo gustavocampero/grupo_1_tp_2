@@ -1,0 +1,5 @@
+../Project/app/src/task_led.c:69:13:ledColorToStr	16	static
+../Project/app/src/task_led.c:81:13:task_	24	static
+../Project/app/src/task_led.c:158:6:ao_led_send	16	static
+../Project/app/src/task_led.c:181:6:ao_led_init	16	static
+../Project/app/src/task_led.c:195:12:ao_led_start_task	32	static

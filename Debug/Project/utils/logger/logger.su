@@ -1,0 +1,10 @@
+../Project/utils/logger/logger.c:14:22:lock	8	static
+../Project/utils/logger/logger.c:15:22:unlock	8	static
+../Project/utils/logger/logger.c:31:6:log_init	8	static
+../Project/utils/logger/logger.c:39:5:log_subscribe	32	static
+../Project/utils/logger/logger.c:55:5:log_unsubscribe	16	static
+../Project/utils/logger/logger.c:67:15:format_prefix	40	static
+../Project/utils/logger/logger.c:77:8:log_vprintf	48	static
+../Project/utils/logger/logger.c:97:8:log_printf	28	static
+../Project/utils/logger/logger.c:106:13:log_level_str	16	static
+../Project/utils/logger/logger.c:117:32:log_get_timestamp_ms	4	static

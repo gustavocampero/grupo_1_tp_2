@@ -1,0 +1,4 @@
+../Project/ports/uart/port_uart.c:34:6:port_uart_hw_init	1
+../Project/ports/uart/port_uart.c:44:6:port_uart_dma_start	3
+../Project/ports/uart/port_uart.c:54:6:HAL_UART_TxCpltCallback	2
+../Project/ports/uart/port_uart.c:62:6:HAL_UART_ErrorCallback	1

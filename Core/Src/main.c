@@ -23,8 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* Demo includes. */
-#include "logger.h"
-#include "dwt.h"
+
 
 /* Application includes. */
 #include "app.h"

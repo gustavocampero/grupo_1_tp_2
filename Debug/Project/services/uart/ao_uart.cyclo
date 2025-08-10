@@ -1,0 +1,6 @@
+../Project/services/uart/ao_uart.c:22:6:ao_uart_create	5
+../Project/services/uart/ao_uart.c:37:8:ao_uart_post	6
+../Project/services/uart/ao_uart.c:46:8:ao_uart_post_str	3
+../Project/services/uart/ao_uart.c:53:6:ao_uart_flush	4
+../Project/services/uart/ao_uart.c:65:6:ao_uart_on_tx_complete_isr	3
+../Project/services/uart/ao_uart.c:73:13:ao_uart_task	2

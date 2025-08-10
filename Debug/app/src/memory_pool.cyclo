@@ -1,3 +1,0 @@
-../app/src/memory_pool.c:59:6:memory_pool_init	2
-../app/src/memory_pool.c:72:7:memory_pool_block_get	1
-../app/src/memory_pool.c:81:6:memory_pool_block_put	2
