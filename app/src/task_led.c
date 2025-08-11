@@ -85,8 +85,10 @@ static void task_(void *argument)
   while (true)
   {
     ao_led_message_t* msg;
+    portENTER_CRITICAL(); // Entró en CRITICAL para procesar una queue vacia sin que cambie de contexto
     if (pdPASS == xQueueReceive(hqueue, (void*)&msg, 0))
     {
+      portEXIT_CRITICAL(); // Si la queue tiene datos puede cambiar de contexto
       switch (msg->action) {
         case AO_LED_MESSAGE_ON:
           HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_SET);
@@ -113,9 +115,10 @@ static void task_(void *argument)
           break;
       }
     }else{
-    	LOGGER_INFO("Borrando tarea leds");
+    	// LOGGER_INFO("Borrando tarea leds");
     	task_led_running = false;
     	vTaskDelete(NULL);
+    	portEXIT_CRITICAL(); // Termina de procesar la queue vacia
     }
     vTaskDelay((TickType_t)(50 / portTICK_PERIOD_MS)); // Si no, la button_task se bloquea hasta que se termine de procesar la accion
   }
@@ -135,7 +138,7 @@ bool ao_led_send(ao_led_message_t* msg)
 			if(ao_led_create_task() != pdPASS) {
 				LOGGER_INFO("ERROR CREANDO TAREA LEDS!");
 			}else {
-				LOGGER_INFO("Tarea Leds creada");
+				// LOGGER_INFO("Tarea Leds creada");
 				task_led_running = true;
 				ret = true;
 			}

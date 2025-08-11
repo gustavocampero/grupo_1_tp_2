@@ -87,8 +87,8 @@ memory_pool_t* const hmp = &memory_pool_;
 static void callback_(void* ptr)
 {
 	memory_pool_block_put(hmp, (void*)ptr);
-    LOGGER_INFO("Memoria liberada desde button");
-    LOGGER_INFO("Mensajes en proceso: %d", --msg_wip_);
+    // LOGGER_INFO("Memoria liberada desde button");
+    // LOGGER_INFO("Mensajes en proceso: %d", --msg_wip_);
 }
 
 static void sendmsg(ao_led_color color ,ao_led_action_t action, int value)
@@ -103,7 +103,10 @@ static void sendmsg(ao_led_color color ,ao_led_action_t action, int value)
 	  led_msg->value = value;
 	  led_msg->color = color;
 	  vTaskDelay((TickType_t)(50 / portTICK_PERIOD_MS)); // Si no, la button_task se bloquea hasta que se termine de procesar la accion
-	  ao_led_send(led_msg);
+	  if(ao_led_send(led_msg) == false)
+	  {
+		  memory_pool_block_put(hmp, (void*)led_msg);
+	  }
 	  msg_wip_++;
 	}
 }
