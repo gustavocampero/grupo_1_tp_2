@@ -72,8 +72,8 @@ void app_init(void)
 
     /* 2) Crear el AO dueño del UART (cola/stream + task) */
     if (!ao_uart_create()) {
-        /* Si querés, podés hacer un fallback o quedarte en error */
-        // for(;;);
+        log_printf(LOG_ERROR, "Error al crear el AO UART.\r\n");
+
     }
 
     /* 3) Inicializar el logger y suscribir el sink hacia el AO UART */
@@ -83,27 +83,19 @@ void app_init(void)
 
     /* 4) Logs de smoke test */
     log_printf(LOG_INFO,  "Logger listo. AO UART activo.\r\n");
-    log_printf(LOG_WARN,  "Ejemplo WARN: nivel de batería bajo (simulado).\r\n");
-    log_printf(LOG_ERROR, "Ejemplo ERROR: código=%d (simulado).\r\n", 42);
-  //BaseType_t status;
+    BaseType_t status;
 
-  // Primero se inicializa el UI ya que controla los LEDs
-  //LOGGER_INFO("Initializing UI...");
-  //ao_ui_init();
-
-  // Crear la tarea de botón con alta prioridad para una respuesta rápida ya que no será un OA
-  //LOGGER_INFO("Creating button task...");
-  //status = xTaskCreate(task_button, "task_button", 128, NULL, tskIDLE_PRIORITY + 2, NULL);
-  //if (pdPASS != status)
-  //{
-    //LOGGER_ERROR("Failed to create button task");
-    //while(1);
-  //}
-
-  //LOGGER_INFO("Initializing cycle counter...");
-  cycle_counter_init();
-  
-  //LOGGER_INFO("Application initialization complete");
+    ao_ui_init();
+    log_printf(LOG_INFO,  "UI listo. AO UI activo.\r\n");
+    // Crear la tarea de botón con alta prioridad para una respuesta rápida ya que no será un AO
+    status = xTaskCreate(task_button, "task_button", 128, NULL, tskIDLE_PRIORITY + 2, NULL);
+    if (pdPASS != status)
+    {
+      log_printf(LOG_ERROR, "Error al crear la tarea de botón.\r\n");
+      while(1);
+    }
+    cycle_counter_init();
+    
 }
 
 /********************** end of file ******************************************/
