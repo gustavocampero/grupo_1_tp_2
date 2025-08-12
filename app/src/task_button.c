@@ -45,6 +45,8 @@
 #include "dwt.h"
 
 #include "task_ui.h"
+#include "task_button.h"
+#include "delay.h"
 
 /********************** macros and definitions *******************************/
 
@@ -126,29 +128,40 @@ void task_button(void* argument)
         button_state_t state = button_process_state_(!button_state);
         
         if (state != BUTTON_STATE_NONE) {
+            // Crear evento del botón
             button_event_t event = {
                 .state = state,
-                .timestamp = DWT_GetTick() // Usar DWT para timestamp preciso
+                .timestamp = HAL_GetTick()
             };
             
+            // Determinar estado y prioridad para logging
             const char* state_str;
+            // Convertir el estado del botón a evento de mensaje
+            msg_event_t msg_event;
             switch (state) {
                 case BUTTON_STATE_PULSE:
+                    msg_event = MSG_EVENT_BUTTON_PULSE;
                     state_str = "pulse";
                     break;
                 case BUTTON_STATE_SHORT:
+                    msg_event = MSG_EVENT_BUTTON_SHORT;
                     state_str = "short";
                     break;
                 case BUTTON_STATE_LONG:
+                    msg_event = MSG_EVENT_BUTTON_LONG;
                     state_str = "long";
                     break;
                 default:
                     state_str = "unknown";
-                    break;
+                    continue; // Saltar este evento
             }
             
-            LOGGER_INFO("button %s detected at %lu", state_str, event.timestamp);
-            ao_ui_send_button_event(&event);
+            // Loggear el evento del botón
+            LOGGER_INFO("Button %s press detected at tick %lu", 
+                     state_str, event.timestamp);
+            
+            // Enviar el evento al UI
+            ao_ui_send_event(msg_event);
         }
 
     vTaskDelay((TickType_t)(TASK_PERIOD_MS_ / portTICK_PERIOD_MS));

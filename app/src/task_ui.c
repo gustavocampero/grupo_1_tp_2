@@ -51,6 +51,7 @@
 #include "task_ui.h"
 #include "task_led.h"
 #include "memory_pool.h"
+#include "priority_queue.h"
 
 /********************** macros and definitions *******************************/
 
@@ -65,7 +66,7 @@
 typedef struct {
     msg_event_t type;          // Tipo de evento del botón
     uint32_t timestamp;        // Para orden FIFO dentro de misma prioridad
-    priority_t priority;       // Prioridad del evento
+    priority_level_t priority; // Prioridad del evento
 } ui_event_t;
 
 // Estructura principal del AO
@@ -96,8 +97,16 @@ static void callback_(void* ptr)
     memory_pool_block_put(hmp, (void*)ptr);
 }
 
+// Estructura de control del LED
+typedef struct {
+    ao_led_color current_color;
+    bool is_processing;
+    TimerHandle_t timer;
+    SemaphoreHandle_t mutex;
+} led_control_t;
+
 static led_control_t led_control = {
-    .current_color = 0,
+    .current_color = AO_LED_COLOR_RED,
     .is_processing = false,
     .timer = NULL,
     .mutex = NULL
@@ -152,30 +161,8 @@ static bool sendmsg(ao_led_color color, ao_led_action_t action, int value)
     }
     return success;
 }
-}
 
-static void led_timer_callback(TimerHandle_t timer) 
-{
-    // Este callback se ejecuta cuando expira el timer de 5 segundos
-    if (xSemaphoreTake(hao_.led_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        if (hao_.led_active) {
-            // Apagar el LED activo
-            ao_led_message_t* led_msg = (ao_led_message_t*)memory_pool_block_get(hmp);
-            if (led_msg != NULL) {
-                led_msg->callback = callback_;
-                led_msg->action = AO_LED_MESSAGE_OFF;
-                led_msg->color = hao_.active_led;
-                led_msg->value = 0;
-                
-                if (ao_led_send(led_msg) == false) {
-                    memory_pool_block_put(hmp, (void*)led_msg);
-                }
-            }
-            hao_.led_active = false;
-        }
-        xSemaphoreGive(hao_.led_mutex);
-    }
-}
+// Timer callback moved to top of file
 
 static void task_(void *argument)
 {
@@ -189,14 +176,14 @@ static void task_(void *argument)
                        hao_.low_buffer,
                        QUEUE_SIZE * sizeof(ui_event_t));
 
-    // Crear mutex para protección de LEDs
-    hao_.led_mutex = xSemaphoreCreateMutex();
-    assert(hao_.led_mutex != NULL);
+    // Crear mutex para protección del estado del LED
+    led_control.mutex = xSemaphoreCreateMutex();
+    assert(led_control.mutex != NULL);
 
-    // Crear timer para control de LED
-    hao_.led_timer = xTimerCreate("LED Timer", 
-                                 pdMS_TO_TICKS(LED_ON_TIME_MS),
-                                 pdFALSE,  // No auto-reload
+    // Crear timer para apagado automático del LED
+    led_control.timer = xTimerCreate("LED Timer", 
+                                   pdMS_TO_TICKS(LED_ON_TIME_MS),
+                                   pdFALSE,  // No auto-reload
                                  NULL,
                                  led_timer_callback);
     assert(hao_.led_timer != NULL);
@@ -224,11 +211,11 @@ static void task_(void *argument)
 
     while (true)
     {
-        ui_event_t event;
+        priority_queue_msg_t event;
         
         // Si no hay LED activo, procesar siguiente evento
-        if (!hao_.led_active) {
-            if (priority_queue_receive(&hao_.priority_queue, (priority_queue_msg_t*)&event)) {
+        if (!led_control.is_processing) {
+            if (priority_queue_receive(&hao_.priority_queue, &event)) {
                 ao_led_color led_color;
                 const char* priority_str;
                 
@@ -250,26 +237,14 @@ static void task_(void *argument)
                         continue;
                 }
                 
-                // Tomar mutex antes de modificar estado de LEDs
-                if (xSemaphoreTake(hao_.led_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-                    LOGGER_INFO("Processing %s priority event - timestamp: %lu", priority_str, event.timestamp);
-                    
-                    // Activar el LED correspondiente
-                    ao_led_message_t* led_msg = (ao_led_message_t*)memory_pool_block_get(hmp);
-                    if (led_msg != NULL) {
-                        led_msg->callback = callback_;
-                        led_msg->action = AO_LED_MESSAGE_ON;
-                        led_msg->color = led_color;
-                        led_msg->value = 0;
-                        
-                        if (ao_led_send(led_msg)) {
-                            hao_.active_led = led_color;
-                            hao_.led_active = true;
-                            xTimerStart(hao_.led_timer, pdMS_TO_TICKS(100));
-                        }
-                        memory_pool_block_put(hmp, (void*)led_msg);
-                    }
-                    xSemaphoreGive(hao_.led_mutex);
+                // Activar el LED correspondiente y registrar evento
+                LOGGER_INFO("Processing %s priority event - timestamp: %lu", 
+                          priority_str, event.timestamp);
+                
+                if (sendmsg(led_color, AO_LED_MESSAGE_ON, 0)) {
+                    LOGGER_INFO("LED %s activated successfully", priority_str);
+                } else {
+                    LOGGER_INFO("Failed to activate LED %s", priority_str);
                 }
             }
         }
@@ -278,17 +253,16 @@ static void task_(void *argument)
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
-}
 
-/********************** external functions PULSEdefinition ************************/
+/********************** external functions definition ************************/
 
 bool ao_ui_send_event(msg_event_t msg)
 {
     ui_event_t event;
+    event.timestamp = HAL_GetTick();
     event.type = msg;
-    event.timestamp = DWT_GetTick();
     
-    // Determinar prioridad según tipo de evento
+    // Asignar prioridad según el tipo de evento
     switch(msg) {
         case MSG_EVENT_BUTTON_PULSE:
             event.priority = PRIORITY_HIGH;
@@ -303,8 +277,10 @@ bool ao_ui_send_event(msg_event_t msg)
             return false;
     }
     
+    LOGGER_INFO("Sending event type=%d with priority=%d at timestamp=%lu", 
+               event.type, event.priority, event.timestamp);
+    
     return priority_queue_send(&hao_.priority_queue, (priority_queue_msg_t*)&event);
-}
 }
 
 void ao_ui_init(void)

@@ -1,6 +1,26 @@
 /*
  * Copyright (c) 2023 Sebastian Bedin <sebabedin@gmail.com>.
  * All rights reserved.
+
+#ifndef TASK_BUTTON_H_
+#define TASK_BUTTON_H_
+
+#include <stdint.h>
+#include <stdbool.h>
+
+// Button states
+typedef enum {
+    BUTTON_STATE_NONE,
+    BUTTON_STATE_PULSE,
+    BUTTON_STATE_SHORT,
+    BUTTON_STATE_LONG
+} button_state_t;
+
+// Button event structure
+typedef struct {
+    button_state_t state;
+    uint32_t timestamp;
+} button_event_t;
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:

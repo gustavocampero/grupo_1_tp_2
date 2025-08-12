@@ -58,10 +58,6 @@
 
 /********************** internal data definition *****************************/
 
-static GPIO_TypeDef* led_port_[] = {LED_RED_PORT, LED_GREEN_PORT,  LED_BLUE_PORT};
-static uint16_t led_pin_[] = {LED_RED_PIN,  LED_GREEN_PIN, LED_BLUE_PIN };
-static volatile bool task_led_running = false; // sólo 1 hilo para manejar los leds
-static SemaphoreHandle_t led_task_mutex = NULL;
 static QueueHandle_t hqueue;
 
 /********************** external data definition *****************************/
@@ -85,45 +81,28 @@ static void task_(void *argument)
   (void)argument;
   while (true)
   {
-    ao_led_message_t* msg;
-    portENTER_CRITICAL(); // Entró en CRITICAL para procesar una queue vacia sin que cambie de contexto
-    if (pdPASS == xQueueReceive(hqueue, (void*)&msg, 0))
+    ao_led_message_t msg;
+    if (pdPASS == xQueueReceive(hqueue, &msg, portMAX_DELAY))
     {
-      portEXIT_CRITICAL(); // Si la queue tiene datos puede cambiar de contexto
-      switch (msg->action) {
+      switch (msg.action) {
         case AO_LED_MESSAGE_ON:
-          HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_SET);
-          LOGGER_INFO("				LED %s ENCENDIDO", ledColorToStr(msg->color));
-          msg->callback((void*)msg);
+          LOGGER_INFO("LED %s ENCENDIDO", ledColorToStr(msg.color));
+          if (msg.callback) {
+              msg.callback(&msg);
+          }
           break;
 
         case AO_LED_MESSAGE_OFF:
-          HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_RESET);
-          LOGGER_INFO("				LED %s APAGADO", ledColorToStr(msg->color));
-          msg->callback((void*)msg);
-          break;
-
-        case AO_LED_MESSAGE_BLINK:
-          HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_SET);
-          LOGGER_INFO("				LED %s ENCENDIDO", ledColorToStr(msg->color));
-          vTaskDelay((TickType_t)((msg->value) / portTICK_PERIOD_MS));
-          HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_RESET);
-          LOGGER_INFO("				LED %s APAGADO", ledColorToStr(msg->color));
-          msg->callback((void*)msg);
+          LOGGER_INFO("LED %s APAGADO", ledColorToStr(msg.color));
+          if (msg.callback) {
+              msg.callback(&msg);
+          }
           break;
 
         default:
           break;
       }
-    } else {
-        if (xSemaphoreTake(led_task_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            task_led_running = false;
-            xSemaphoreGive(led_task_mutex);
-        }
-        vTaskDelete(NULL);
-        portEXIT_CRITICAL(); // Termina de procesar la queue vacia
     }
-    vTaskDelay((TickType_t)(50 / portTICK_PERIOD_MS)); // Si no, la button_task se bloquea hasta que se termine de procesar la accion
   }
 }
 
@@ -136,43 +115,22 @@ BaseType_t ao_led_create_task(){
 bool ao_led_send(ao_led_message_t* msg)
 {
     if (msg == NULL) {
-        LOGGER_ERROR("LED message is NULL");
+        LOGGER_INFO("LED message is NULL");
         return false;
     }
 
-    bool ret = false;
-    
-    if (led_task_mutex == NULL) {
-        led_task_mutex = xSemaphoreCreateMutex();
-        assert(led_task_mutex != NULL);
-    }
-    
-    if (xSemaphoreTake(led_task_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        if (xQueueSend(hqueue, (void*)&msg, 0) == pdPASS) {
-            if (!task_led_running) {
-                if (ao_led_create_task() != pdPASS) {
-                    LOGGER_ERROR("ERROR CREANDO TAREA LEDS!");
-                } else {
-                    task_led_running = true;
-                    ret = true;
-                }
-            } else {
-                ret = true;
-            }
-        }
-        xSemaphoreGive(led_task_mutex);
-    }
-    return ret;
+    return (xQueueSend(hqueue, msg, pdMS_TO_TICKS(100)) == pdPASS);
 }
 
-void ao_led_init()
+void ao_led_init(void)
 {
-  hqueue = xQueueCreate(QUEUE_LENGTH_, QUEUE_ITEM_SIZE_);
-  if(NULL == hqueue){
-	  LOGGER_INFO("ERROR: ao_led_init xQueueCreate");
-	  while (true){/*ERROR*/}
-  }
-
+    // Crear la cola de mensajes
+    hqueue = xQueueCreate(QUEUE_LENGTH_, QUEUE_ITEM_SIZE_);
+    configASSERT(hqueue != NULL);
+    
+    // Crear la tarea del LED
+    BaseType_t status = xTaskCreate(task_, "task_led", 128, NULL, tskIDLE_PRIORITY, NULL);
+    configASSERT(status == pdPASS);
 }
 
 /********************** end of file ******************************************/

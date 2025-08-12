@@ -1,6 +1,17 @@
+// Standard includes
+#include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+// Project includes
 #include "priority_queue.h"
-#include "cmsis_os.h"
 #include "logger.h"
+
+// FreeRTOS includes
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "semphr.h"
 
 // Implementación de las funciones de la cola de prioridades
 void priority_queue_init(priority_queue_t* pq, 
@@ -33,46 +44,58 @@ void priority_queue_init(priority_queue_t* pq,
     assert(pq->queue_access_mutex != NULL);
 }
 
-bool priority_queue_send(priority_queue_t* pq, priority_queue_msg_t* msg) {
-    assert(pq != NULL && msg != NULL);
+bool priority_queue_send(priority_queue_t* pq, priority_queue_msg_t* msg) 
+{
     bool success = false;
-    
-    // Primero obtenemos acceso general a la cola
-    if (xSemaphoreTake(pq->queue_access_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+
+    if (pq == NULL || msg == NULL) {
+        LOGGER_INFO("Invalid parameters in priority_queue_send");
         return false;
     }
     
-    ring_buffer_t* target_queue;
-    SemaphoreHandle_t target_mutex;
+    if (xSemaphoreTake(pq->queue_access_mutex, pdMS_TO_TICKS(500)) != pdTRUE) {
+        LOGGER_INFO("Failed to acquire queue access mutex");
+        return false;
+    }
+
+    ring_buffer_t* target_queue = NULL;
+    SemaphoreHandle_t target_mutex = NULL;
+    const char* priority_str = "";
     
+    // Seleccionar cola basado en prioridad
     switch (msg->priority) {
         case PRIORITY_HIGH:
             target_queue = &pq->high_priority;
             target_mutex = pq->mutex_high;
+            priority_str = "HIGH";
             break;
         case PRIORITY_MEDIUM:
             target_queue = &pq->medium_priority;
             target_mutex = pq->mutex_medium;
+            priority_str = "MEDIUM";
             break;
         case PRIORITY_LOW:
             target_queue = &pq->low_priority;
             target_mutex = pq->mutex_low;
+            priority_str = "LOW";
             break;
         default:
+            LOGGER_INFO("Invalid priority level");
             xSemaphoreGive(pq->queue_access_mutex);
             return false;
     }
     
-    // Obtener acceso exclusivo a la cola específica
-    if (xSemaphoreTake(target_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+    // Intentar obtener mutex específico de la cola
+    if (xSemaphoreTake(target_mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
         // Si la cola está llena, descartamos el mensaje más antiguo
         if (ring_buffer_is_full(target_queue)) {
-            uint8_t dummy;
-            ring_buffer_read_byte(target_queue, &dummy);
-            LOGGER_WARN("Priority queue overflow - discarding oldest message");
+            priority_queue_msg_t old_msg;
+            ring_buffer_read_bytes(target_queue, (uint8_t*)&old_msg, sizeof(priority_queue_msg_t));
+            LOGGER_INFO("%s priority queue overflow - discarding message from tick %lu", 
+                       priority_str, old_msg.timestamp);
         }
         
-        // Escribimos el nuevo mensaje
+        // Escribir el nuevo mensaje
         ring_buffer_write_bytes(target_queue, (uint8_t*)msg, sizeof(priority_queue_msg_t));
         success = true;
         
@@ -84,34 +107,41 @@ bool priority_queue_send(priority_queue_t* pq, priority_queue_msg_t* msg) {
 }
 
 bool priority_queue_receive(priority_queue_t* pq, priority_queue_msg_t* msg) {
-    assert(pq != NULL && msg != NULL);
-    bool success = false;
-    
-    // Obtener acceso general a la cola
-    if (xSemaphoreTake(pq->queue_access_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+    if (pq == NULL || msg == NULL) {
+        LOGGER_INFO("Invalid parameters in priority_queue_receive");
         return false;
     }
     
+    if (xSemaphoreTake(pq->queue_access_mutex, pdMS_TO_TICKS(500)) != pdTRUE) {
+        LOGGER_INFO("Failed to acquire queue access mutex for receive");
+        return false;
+    }
+    
+    bool success = false;
+    
     // Intentar leer de las colas en orden de prioridad
-    if (xSemaphoreTake(pq->mutex_high, pdMS_TO_TICKS(100)) == pdTRUE) {
+    if (xSemaphoreTake(pq->mutex_high, pdMS_TO_TICKS(500)) == pdTRUE) {
         if (!ring_buffer_is_empty(&pq->high_priority)) {
             ring_buffer_read_bytes(&pq->high_priority, (uint8_t*)msg, sizeof(priority_queue_msg_t));
+            LOGGER_INFO("Read HIGH priority message from tick %lu", msg->timestamp);
             success = true;
         }
         xSemaphoreGive(pq->mutex_high);
     }
     
-    if (!success && xSemaphoreTake(pq->mutex_medium, pdMS_TO_TICKS(100)) == pdTRUE) {
+    if (!success && xSemaphoreTake(pq->mutex_medium, pdMS_TO_TICKS(500)) == pdTRUE) {
         if (!ring_buffer_is_empty(&pq->medium_priority)) {
             ring_buffer_read_bytes(&pq->medium_priority, (uint8_t*)msg, sizeof(priority_queue_msg_t));
+            LOGGER_INFO("Read MEDIUM priority message from tick %lu", msg->timestamp);
             success = true;
         }
         xSemaphoreGive(pq->mutex_medium);
     }
     
-    if (!success && xSemaphoreTake(pq->mutex_low, pdMS_TO_TICKS(100)) == pdTRUE) {
+    if (!success && xSemaphoreTake(pq->mutex_low, pdMS_TO_TICKS(500)) == pdTRUE) {
         if (!ring_buffer_is_empty(&pq->low_priority)) {
             ring_buffer_read_bytes(&pq->low_priority, (uint8_t*)msg, sizeof(priority_queue_msg_t));
+            LOGGER_INFO("Read LOW priority message from tick %lu", msg->timestamp);
             success = true;
         }
         xSemaphoreGive(pq->mutex_low);

@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
 #include "task.h"
+#include "timers.h"
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -44,10 +45,21 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
-
+/* Static memory for the Timer task */
+static StaticTask_t xTimerTaskTCBBuffer;
+static StackType_t xTimerTaskStackBuffer[configTIMER_TASK_STACK_DEPTH];
 /* USER CODE END Variables */
 
 /* Private function prototypes -----------------------------------------------*/
+
+/* USER CODE BEGIN TIMER_TASK_MEMORY */
+void vApplicationGetTimerTaskMemory(StaticTask_t **ppxTimerTaskTCBBuffer,
+                                  StackType_t **ppxTimerTaskStackBuffer,
+                                  uint32_t *pulTimerTaskStackSize) {
+    *ppxTimerTaskTCBBuffer = &xTimerTaskTCBBuffer;
+    *ppxTimerTaskStackBuffer = xTimerTaskStackBuffer;
+    *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
+}
 /* USER CODE BEGIN FunctionPrototypes */
 
 /* USER CODE END FunctionPrototypes */

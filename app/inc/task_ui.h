@@ -45,24 +45,25 @@ extern "C" {
 
 /********************** inclusions *******************************************/
 
+// Standard includes
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "main.h"
-#include "cmsis_os.h"
+// FreeRTOS includes
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+
+// Project includes
+#include "task_button.h"
+#include "task_led.h"
 
 /********************** macros ***********************************************/
 
 /********************** typedef **********************************************/
 
-typedef enum
-{
-  MSG_EVENT_BUTTON_PULSE,
-  MSG_EVENT_BUTTON_SHORT,
-  MSG_EVENT_BUTTON_LONG,
-  MSG_EVENT__N,
-} msg_event_t;
+#include "msg_event.h"  // Include the shared event enum definition
 
 /********************** external data declaration ****************************/
 

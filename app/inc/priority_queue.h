@@ -1,10 +1,18 @@
 #ifndef PRIORITY_QUEUE_H_
 #define PRIORITY_QUEUE_H_
 
+// Standard includes
 #include <stdint.h>
 #include <stdbool.h>
+
+// FreeRTOS includes
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+
+// Project includes
 #include "ring_buffer.h"
-#include "task_button.h"
+#include "msg_event.h"  // Include the shared event enum definition
 
 // Definición de prioridades
 typedef enum {
@@ -17,7 +25,7 @@ typedef enum {
 typedef struct {
     priority_level_t priority;
     uint32_t timestamp;
-    button_state_t state;
+    msg_event_t type;
 } priority_queue_msg_t;
 
 // Estructura de la cola de prioridades
