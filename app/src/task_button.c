@@ -67,85 +67,89 @@ extern SemaphoreHandle_t hsem_button;
 
 /********************** internal functions definition ************************/
 
-typedef enum
-{
-  BUTTON_TYPE_NONE,
-  BUTTON_TYPE_PULSE,
-  BUTTON_TYPE_SHORT,
-  BUTTON_TYPE_LONG,
-  BUTTON_TYPE__N,
-} button_type_t;
-
-static struct
-{
+static struct {
     uint32_t counter;
+    delay_t debounce_delay;
+    bool last_state;
 } button;
 
 static void button_init_(void)
 {
-  button.counter = 0;
+    button.counter = 0;
+    button.last_state = false;
+    delayInit(&button.debounce_delay, 20); // 20ms de debounce
 }
 
-static button_type_t button_process_state_(bool value)
+static button_state_t button_process_state_(bool value)
 {
-  button_type_t ret = BUTTON_TYPE_NONE;
-  if(value)
-  {
-    button.counter += BUTTON_PERIOD_MS_;
-    // LOGGER_INFO("\t\t(%d) BOTON PRESIONADO - %d ms", (int)HAL_GetTick(),(int)button.counter);
-  }
-  else
-  {
-    if(BUTTON_LONG_TIMEOUT_ <= button.counter)
-    {
-      ret = BUTTON_TYPE_LONG;
+    button_state_t ret = BUTTON_STATE_NONE;
+    
+    // Debouncing
+    if (value != button.last_state) {
+        delayInit(&button.debounce_delay, 20);
+        button.last_state = value;
     }
-    else if(BUTTON_SHORT_TIMEOUT_ <= button.counter)
-    {
-      ret = BUTTON_TYPE_SHORT;
+
+    if (delayRead(&button.debounce_delay)) {
+        if (value) {
+            button.counter += BUTTON_PERIOD_MS_;
+        } else {
+            if (BUTTON_LONG_TIMEOUT_ <= button.counter)
+            {
+                ret = BUTTON_STATE_LONG;
+            }
+            else if (BUTTON_SHORT_TIMEOUT_ <= button.counter)
+            {
+                ret = BUTTON_STATE_SHORT;
+            }
+            else if (BUTTON_PULSE_TIMEOUT_ <= button.counter)
+            {
+                ret = BUTTON_STATE_PULSE;
+            }
+            button.counter = 0;
+        }
     }
-    else if(BUTTON_PULSE_TIMEOUT_ <= button.counter)
-    {
-      ret = BUTTON_TYPE_PULSE;
-    }
-    button.counter = 0;
-  }
-  return ret;
+    return ret;
 }
 
 /********************** external functions definition ************************/
 
 void task_button(void* argument)
 {
-  button_init_();
+    button_init_();
+    
+    while(true)
+    {
+        GPIO_PinState button_state;
+        button_state = HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN);
 
-  while(true)
-  {
-    GPIO_PinState button_state;
-    button_state = HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN);
-
-    button_type_t button_type = BUTTON_TYPE_NONE;
-    button_type = button_process_state_(!button_state);
-
-    switch (button_type) {
-      case BUTTON_TYPE_NONE:
-        break;
-      case BUTTON_TYPE_PULSE:
-        LOGGER_INFO("button pulse");
-        ao_ui_send_event(MSG_EVENT_BUTTON_PULSE);
-        break;
-      case BUTTON_TYPE_SHORT:
-        LOGGER_INFO("button short");
-        ao_ui_send_event(MSG_EVENT_BUTTON_SHORT);
-        break;
-      case BUTTON_TYPE_LONG:
-        LOGGER_INFO("button long");
-        ao_ui_send_event(MSG_EVENT_BUTTON_LONG);
-        break;
-      default:
-        LOGGER_INFO("button error");
-        break;
-    }
+        button_state_t state = button_process_state_(!button_state);
+        
+        if (state != BUTTON_STATE_NONE) {
+            button_event_t event = {
+                .state = state,
+                .timestamp = DWT_GetTick() // Usar DWT para timestamp preciso
+            };
+            
+            const char* state_str;
+            switch (state) {
+                case BUTTON_STATE_PULSE:
+                    state_str = "pulse";
+                    break;
+                case BUTTON_STATE_SHORT:
+                    state_str = "short";
+                    break;
+                case BUTTON_STATE_LONG:
+                    state_str = "long";
+                    break;
+                default:
+                    state_str = "unknown";
+                    break;
+            }
+            
+            LOGGER_INFO("button %s detected at %lu", state_str, event.timestamp);
+            ao_ui_send_button_event(&event);
+        }
 
     vTaskDelay((TickType_t)(TASK_PERIOD_MS_ / portTICK_PERIOD_MS));
   }

@@ -54,17 +54,30 @@
 
 /********************** macros and definitions *******************************/
 
-#define QUEUE_LENGTH_            (1)
-#define QUEUE_ITEM_SIZE_         (sizeof(msg_event_t))
-
-#define MEMORY_POOL_NBLOCKS       (10)
-#define MEMORY_POOL_BLOCK_SIZE    (sizeof(ao_led_message_t))
+#define QUEUE_SIZE               (10)    // Tamaño de la cola de prioridad
+#define MEMORY_POOL_NBLOCKS     (10)
+#define MEMORY_POOL_BLOCK_SIZE  (sizeof(ao_led_message_t))
+#define LED_ON_TIME_MS         (5000)   // 5 segundos
 
 /********************** internal data declaration ****************************/
 
-typedef struct
-{
-    QueueHandle_t hqueue;
+// Estructura para eventos UI con prioridad
+typedef struct {
+    msg_event_t type;          // Tipo de evento del botón
+    uint32_t timestamp;        // Para orden FIFO dentro de misma prioridad
+    priority_t priority;       // Prioridad del evento
+} ui_event_t;
+
+// Estructura principal del AO
+typedef struct {
+    priority_queue_t priority_queue;    // Cola de prioridad única
+    uint8_t high_buffer[QUEUE_SIZE * sizeof(ui_event_t)];
+    uint8_t medium_buffer[QUEUE_SIZE * sizeof(ui_event_t)];
+    uint8_t low_buffer[QUEUE_SIZE * sizeof(ui_event_t)];
+    SemaphoreHandle_t led_mutex;       // Mutex para proteger acceso a LEDs
+    bool led_active;                   // Indica si hay LED activo
+    ao_led_color active_led;           // LED actualmente activo
+    TimerHandle_t led_timer;           // Timer para apagar LED
 } ao_ui_handle_t;
 
 /********************** internal functions declaration ***********************/
@@ -72,107 +85,233 @@ typedef struct
 /********************** internal data definition *****************************/
 
 static ao_ui_handle_t hao_;
-static int msg_wip_ = 0;
 static memory_pool_t memory_pool_;
 static uint8_t memory_pool_memory_[MEMORY_POOL_SIZE(MEMORY_POOL_NBLOCKS, MEMORY_POOL_BLOCK_SIZE)];
-
-/********************** external data definition *****************************/
-
-
-
 memory_pool_t* const hmp = &memory_pool_;
 
 /********************** internal functions definition ************************/
 
 static void callback_(void* ptr)
 {
-	memory_pool_block_put(hmp, (void*)ptr);
-    // LOGGER_INFO("Memoria liberada desde button");
-    // LOGGER_INFO("Mensajes en proceso: %d", --msg_wip_);
+    memory_pool_block_put(hmp, (void*)ptr);
 }
 
-static void sendmsg(ao_led_color color ,ao_led_action_t action, int value)
+static led_control_t led_control = {
+    .current_color = 0,
+    .is_processing = false,
+    .timer = NULL,
+    .mutex = NULL
+};
+
+static void led_timer_callback(TimerHandle_t timer) {
+    if (xSemaphoreTake(led_control.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        // Apagar el LED actual
+        ao_led_message_t* led_msg = (ao_led_message_t*)memory_pool_block_get(hmp);
+        if (led_msg != NULL) {
+            led_msg->callback = callback_;
+            led_msg->action = AO_LED_MESSAGE_OFF;
+            led_msg->color = led_control.current_color;
+            led_msg->value = 0;
+            
+            if (ao_led_send(led_msg) == false) {
+                memory_pool_block_put(hmp, (void*)led_msg);
+            }
+        }
+        led_control.is_processing = false;
+        xSemaphoreGive(led_control.mutex);
+    }
+}
+
+static bool sendmsg(ao_led_color color, ao_led_action_t action, int value)
 {
-	static int id = 0;
-	ao_led_message_t* led_msg = (ao_led_message_t*)memory_pool_block_get(hmp);
-	if(NULL != led_msg)
-	{
-	  led_msg->callback = callback_;
-	  led_msg->id = id++;
-	  led_msg->action = action;
-	  led_msg->value = value;
-	  led_msg->color = color;
-	  vTaskDelay((TickType_t)(50 / portTICK_PERIOD_MS)); // Si no, la button_task se bloquea hasta que se termine de procesar la accion
-	  if(ao_led_send(led_msg) == false)
-	  {
-		  memory_pool_block_put(hmp, (void*)led_msg);
-	  }
-	  msg_wip_++;
-	}
+    bool success = false;
+    
+    if (xSemaphoreTake(led_control.mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        // Solo proceder si no hay un LED activo o es una acción de apagado
+        if (!led_control.is_processing || action == AO_LED_MESSAGE_OFF) {
+            ao_led_message_t* led_msg = (ao_led_message_t*)memory_pool_block_get(hmp);
+            if(led_msg != NULL) {
+                led_msg->callback = callback_;
+                led_msg->action = action;
+                led_msg->value = value;
+                led_msg->color = color;
+                
+                if(ao_led_send(led_msg)) {
+                    success = true;
+                    if (action == AO_LED_MESSAGE_ON) {
+                        led_control.current_color = color;
+                        led_control.is_processing = true;
+                        xTimerStart(led_control.timer, pdMS_TO_TICKS(100));
+                    }
+                } else {
+                    memory_pool_block_put(hmp, (void*)led_msg);
+                }
+            }
+        }
+        xSemaphoreGive(led_control.mutex);
+    }
+    return success;
+}
+}
+
+static void led_timer_callback(TimerHandle_t timer) 
+{
+    // Este callback se ejecuta cuando expira el timer de 5 segundos
+    if (xSemaphoreTake(hao_.led_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        if (hao_.led_active) {
+            // Apagar el LED activo
+            ao_led_message_t* led_msg = (ao_led_message_t*)memory_pool_block_get(hmp);
+            if (led_msg != NULL) {
+                led_msg->callback = callback_;
+                led_msg->action = AO_LED_MESSAGE_OFF;
+                led_msg->color = hao_.active_led;
+                led_msg->value = 0;
+                
+                if (ao_led_send(led_msg) == false) {
+                    memory_pool_block_put(hmp, (void*)led_msg);
+                }
+            }
+            hao_.led_active = false;
+        }
+        xSemaphoreGive(hao_.led_mutex);
+    }
 }
 
 static void task_(void *argument)
 {
-  memory_pool_init(hmp, memory_pool_memory_, MEMORY_POOL_NBLOCKS, MEMORY_POOL_BLOCK_SIZE);
+    // Inicializar memory pool para mensajes LED
+    memory_pool_init(hmp, memory_pool_memory_, MEMORY_POOL_NBLOCKS, MEMORY_POOL_BLOCK_SIZE);
 
-  sendmsg(AO_LED_COLOR_RED   , AO_LED_MESSAGE_OFF, 0);
-  sendmsg(AO_LED_COLOR_GREEN , AO_LED_MESSAGE_OFF, 0);
-  sendmsg(AO_LED_COLOR_BLUE  , AO_LED_MESSAGE_OFF, 0);
+    // Inicializar cola de prioridad
+    priority_queue_init(&hao_.priority_queue, 
+                       hao_.high_buffer,
+                       hao_.medium_buffer,
+                       hao_.low_buffer,
+                       QUEUE_SIZE * sizeof(ui_event_t));
 
-  msg_event_t event_msg = {0};
+    // Crear mutex para protección de LEDs
+    hao_.led_mutex = xSemaphoreCreateMutex();
+    assert(hao_.led_mutex != NULL);
 
-  while (true)
-  {
-    if (pdPASS == xQueueReceive(hao_.hqueue, &event_msg, portMAX_DELAY))
-    {
-      switch (event_msg)
-      {
-        case MSG_EVENT_BUTTON_PULSE:
-          LOGGER_INFO("led red");
-          sendmsg(AO_LED_COLOR_BLUE  , AO_LED_MESSAGE_OFF, 0);
-          sendmsg(AO_LED_COLOR_GREEN , AO_LED_MESSAGE_OFF, 0);
-          sendmsg(AO_LED_COLOR_RED   , AO_LED_MESSAGE_ON , 0);
-          break;
-        case MSG_EVENT_BUTTON_SHORT:
-          LOGGER_INFO("led green");
-          sendmsg(AO_LED_COLOR_BLUE  , AO_LED_MESSAGE_OFF, 0);
-          sendmsg(AO_LED_COLOR_RED   , AO_LED_MESSAGE_OFF, 0);
-          sendmsg(AO_LED_COLOR_GREEN , AO_LED_MESSAGE_ON , 0);
-          break;
-        case MSG_EVENT_BUTTON_LONG:
-          LOGGER_INFO("led blue");
-          sendmsg(AO_LED_COLOR_RED   , AO_LED_MESSAGE_OFF, 0);
-          sendmsg(AO_LED_COLOR_GREEN , AO_LED_MESSAGE_OFF, 0);
-          sendmsg(AO_LED_COLOR_BLUE  , AO_LED_MESSAGE_ON , 0);
-          break;
-        default:
-          break;
-      }
+    // Crear timer para control de LED
+    hao_.led_timer = xTimerCreate("LED Timer", 
+                                 pdMS_TO_TICKS(LED_ON_TIME_MS),
+                                 pdFALSE,  // No auto-reload
+                                 NULL,
+                                 led_timer_callback);
+    assert(hao_.led_timer != NULL);
+
+    // Inicializar estado
+    hao_.led_active = false;
+
+    // Apagar todos los LEDs al inicio
+    ao_led_message_t* led_msg = (ao_led_message_t*)memory_pool_block_get(hmp);
+    if (led_msg != NULL) {
+        led_msg->callback = callback_;
+        led_msg->action = AO_LED_MESSAGE_OFF;
+        led_msg->value = 0;
+        
+        // Apagar cada LED
+        for (int i = 0; i < 3; i++) {
+            led_msg->color = (ao_led_color)i;
+            if (ao_led_send(led_msg) == false) {
+                memory_pool_block_put(hmp, (void*)led_msg);
+                break;
+            }
+        }
+        memory_pool_block_put(hmp, (void*)led_msg);
     }
-  }
+
+    while (true)
+    {
+        ui_event_t event;
+        
+        // Si no hay LED activo, procesar siguiente evento
+        if (!hao_.led_active) {
+            if (priority_queue_receive(&hao_.priority_queue, (priority_queue_msg_t*)&event)) {
+                ao_led_color led_color;
+                const char* priority_str;
+                
+                // Determinar color según tipo de evento
+                switch (event.type) {
+                    case MSG_EVENT_BUTTON_PULSE:
+                        led_color = AO_LED_COLOR_RED;
+                        priority_str = "high";
+                        break;
+                    case MSG_EVENT_BUTTON_SHORT:
+                        led_color = AO_LED_COLOR_GREEN;
+                        priority_str = "medium";
+                        break;
+                    case MSG_EVENT_BUTTON_LONG:
+                        led_color = AO_LED_COLOR_BLUE;
+                        priority_str = "low";
+                        break;
+                    default:
+                        continue;
+                }
+                
+                // Tomar mutex antes de modificar estado de LEDs
+                if (xSemaphoreTake(hao_.led_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                    LOGGER_INFO("Processing %s priority event - timestamp: %lu", priority_str, event.timestamp);
+                    
+                    // Activar el LED correspondiente
+                    ao_led_message_t* led_msg = (ao_led_message_t*)memory_pool_block_get(hmp);
+                    if (led_msg != NULL) {
+                        led_msg->callback = callback_;
+                        led_msg->action = AO_LED_MESSAGE_ON;
+                        led_msg->color = led_color;
+                        led_msg->value = 0;
+                        
+                        if (ao_led_send(led_msg)) {
+                            hao_.active_led = led_color;
+                            hao_.led_active = true;
+                            xTimerStart(hao_.led_timer, pdMS_TO_TICKS(100));
+                        }
+                        memory_pool_block_put(hmp, (void*)led_msg);
+                    }
+                    xSemaphoreGive(hao_.led_mutex);
+                }
+            }
+        }
+        
+        // Dar tiempo para que otras tareas se ejecuten
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
 }
 
 /********************** external functions PULSEdefinition ************************/
 
 bool ao_ui_send_event(msg_event_t msg)
 {
-  return (pdPASS == xQueueSend(hao_.hqueue, (void*)&msg, 0));
+    ui_event_t event;
+    event.type = msg;
+    event.timestamp = DWT_GetTick();
+    
+    // Determinar prioridad según tipo de evento
+    switch(msg) {
+        case MSG_EVENT_BUTTON_PULSE:
+            event.priority = PRIORITY_HIGH;
+            break;
+        case MSG_EVENT_BUTTON_SHORT:
+            event.priority = PRIORITY_MEDIUM;
+            break;
+        case MSG_EVENT_BUTTON_LONG:
+            event.priority = PRIORITY_LOW;
+            break;
+        default:
+            return false;
+    }
+    
+    return priority_queue_send(&hao_.priority_queue, (priority_queue_msg_t*)&event);
+}
 }
 
 void ao_ui_init(void)
-{
-  hao_.hqueue = xQueueCreate(QUEUE_LENGTH_, QUEUE_ITEM_SIZE_);
-  while(NULL == hao_.hqueue)
-  {
-    // error
-  }
-
-  BaseType_t status;
-  status = xTaskCreate(task_, "task_ao_ui", 128, NULL, tskIDLE_PRIORITY, NULL);
-  while (pdPASS != status)
-  {
-    // error
-  }
+{    
+    BaseType_t status;
+    status = xTaskCreate(task_, "task_ao_ui", 256, NULL, tskIDLE_PRIORITY, NULL);
+    assert(pdPASS == status);
 }
 
 /********************** end of file ******************************************/

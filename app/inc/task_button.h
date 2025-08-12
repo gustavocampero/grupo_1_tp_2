@@ -46,6 +46,18 @@ extern "C" {
 
 /********************** typedef **********************************************/
 
+typedef enum {
+    BUTTON_STATE_NONE,    // No presionado o < 200ms
+    BUTTON_STATE_PULSE,   // 200ms - 1000ms  -> Alta prioridad
+    BUTTON_STATE_SHORT,   // 1000ms - 2000ms -> Media prioridad
+    BUTTON_STATE_LONG,    // > 2000ms        -> Baja prioridad
+} button_state_t;
+
+typedef struct {
+    button_state_t state;
+    uint32_t timestamp;
+} button_event_t;
+
 /********************** external data declaration ****************************/
 
 /********************** external functions declaration ***********************/

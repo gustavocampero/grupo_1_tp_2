@@ -60,7 +60,8 @@
 
 static GPIO_TypeDef* led_port_[] = {LED_RED_PORT, LED_GREEN_PORT,  LED_BLUE_PORT};
 static uint16_t led_pin_[] = {LED_RED_PIN,  LED_GREEN_PIN, LED_BLUE_PIN };
-static bool task_led_running = false; // sólo 1 hilo para manejar los leds
+static volatile bool task_led_running = false; // sólo 1 hilo para manejar los leds
+static SemaphoreHandle_t led_task_mutex = NULL;
 static QueueHandle_t hqueue;
 
 /********************** external data definition *****************************/
@@ -114,11 +115,13 @@ static void task_(void *argument)
         default:
           break;
       }
-    }else{
-    	// LOGGER_INFO("Borrando tarea leds");
-    	task_led_running = false;
-    	vTaskDelete(NULL);
-    	portEXIT_CRITICAL(); // Termina de procesar la queue vacia
+    } else {
+        if (xSemaphoreTake(led_task_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            task_led_running = false;
+            xSemaphoreGive(led_task_mutex);
+        }
+        vTaskDelete(NULL);
+        portEXIT_CRITICAL(); // Termina de procesar la queue vacia
     }
     vTaskDelay((TickType_t)(50 / portTICK_PERIOD_MS)); // Si no, la button_task se bloquea hasta que se termine de procesar la accion
   }
@@ -132,21 +135,34 @@ BaseType_t ao_led_create_task(){
 
 bool ao_led_send(ao_led_message_t* msg)
 {
+    if (msg == NULL) {
+        LOGGER_ERROR("LED message is NULL");
+        return false;
+    }
+
     bool ret = false;
-	if(xQueueSend(hqueue,(void*)&msg,0) == pdPASS) {
-		if(!task_led_running) {
-			if(ao_led_create_task() != pdPASS) {
-				LOGGER_INFO("ERROR CREANDO TAREA LEDS!");
-			}else {
-				// LOGGER_INFO("Tarea Leds creada");
-				task_led_running = true;
-				ret = true;
-			}
-		}else {
-			ret = true;
-		}
-	}
-	return ret;
+    
+    if (led_task_mutex == NULL) {
+        led_task_mutex = xSemaphoreCreateMutex();
+        assert(led_task_mutex != NULL);
+    }
+    
+    if (xSemaphoreTake(led_task_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        if (xQueueSend(hqueue, (void*)&msg, 0) == pdPASS) {
+            if (!task_led_running) {
+                if (ao_led_create_task() != pdPASS) {
+                    LOGGER_ERROR("ERROR CREANDO TAREA LEDS!");
+                } else {
+                    task_led_running = true;
+                    ret = true;
+                }
+            } else {
+                ret = true;
+            }
+        }
+        xSemaphoreGive(led_task_mutex);
+    }
+    return ret;
 }
 
 void ao_led_init()
