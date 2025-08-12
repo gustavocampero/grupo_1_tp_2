@@ -186,28 +186,10 @@ static void task_(void *argument)
                                    pdFALSE,  // No auto-reload
                                  NULL,
                                  led_timer_callback);
-    assert(hao_.led_timer != NULL);
+    assert(led_control.timer != NULL);  // Fixed: was hao_.led_timer
 
     // Inicializar estado
     hao_.led_active = false;
-
-    // Apagar todos los LEDs al inicio
-    ao_led_message_t* led_msg = (ao_led_message_t*)memory_pool_block_get(hmp);
-    if (led_msg != NULL) {
-        led_msg->callback = callback_;
-        led_msg->action = AO_LED_MESSAGE_OFF;
-        led_msg->value = 0;
-        
-        // Apagar cada LED
-        for (int i = 0; i < 3; i++) {
-            led_msg->color = (ao_led_color)i;
-            if (ao_led_send(led_msg) == false) {
-                memory_pool_block_put(hmp, (void*)led_msg);
-                break;
-            }
-        }
-        memory_pool_block_put(hmp, (void*)led_msg);
-    }
 
     while (true)
     {
@@ -237,12 +219,9 @@ static void task_(void *argument)
                         continue;
                 }
                 
-                // Activar el LED correspondiente y registrar evento
-                LOGGER_INFO("Processing %s priority event - timestamp: %lu", 
-                          priority_str, event.timestamp);
-                
+                // Activar el LED correspondiente
                 if (sendmsg(led_color, AO_LED_MESSAGE_ON, 0)) {
-                    LOGGER_INFO("LED %s activated successfully", priority_str);
+                    // LED activated successfully (no log)
                 } else {
                     LOGGER_INFO("Failed to activate LED %s", priority_str);
                 }
@@ -277,8 +256,8 @@ bool ao_ui_send_event(msg_event_t msg)
             return false;
     }
     
-    LOGGER_INFO("Sending event type=%d with priority=%d at timestamp=%lu", 
-               event.type, event.priority, event.timestamp);
+    // LOGGER_INFO("Sending event type=%d with priority=%d at timestamp=%lu", 
+    //            event.type, event.priority, event.timestamp);
     
     return priority_queue_send(&hao_.priority_queue, (priority_queue_msg_t*)&event);
 }
@@ -286,8 +265,9 @@ bool ao_ui_send_event(msg_event_t msg)
 void ao_ui_init(void)
 {    
     BaseType_t status;
-    status = xTaskCreate(task_, "task_ao_ui", 256, NULL, tskIDLE_PRIORITY, NULL);
+    status = xTaskCreate(task_, "task_ao_ui", 512, NULL, tskIDLE_PRIORITY + 2, NULL);  // Increased stack and priority
     assert(pdPASS == status);
+    LOGGER_INFO("AO UI initialized");
 }
 
 /********************** end of file ******************************************/

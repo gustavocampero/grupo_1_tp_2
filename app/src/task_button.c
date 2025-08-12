@@ -69,47 +69,50 @@ extern SemaphoreHandle_t hsem_button;
 
 /********************** internal functions definition ************************/
 
-static struct {
+typedef enum
+{
+  BUTTON_TYPE_NONE,
+  BUTTON_TYPE_PULSE,
+  BUTTON_TYPE_SHORT,
+  BUTTON_TYPE_LONG,
+  BUTTON_TYPE__N,
+} button_type_t;
+
+static struct
+{
     uint32_t counter;
-    delay_t debounce_delay;
-    bool last_state;
 } button;
 
 static void button_init_(void)
 {
+    LOGGER_INFO("button_init_ started");
     button.counter = 0;
-    button.last_state = false;
-    delayInit(&button.debounce_delay, 20); // 20ms de debounce
+    LOGGER_INFO("button_init_ completed");
 }
 
-static button_state_t button_process_state_(bool value)
+static button_type_t button_process_state_(bool value)
 {
-    button_state_t ret = BUTTON_STATE_NONE;
-    
-    // Debouncing
-    if (value != button.last_state) {
-        delayInit(&button.debounce_delay, 20);
-        button.last_state = value;
+    button_type_t ret = BUTTON_TYPE_NONE;
+    if(value)
+    {
+        button.counter += BUTTON_PERIOD_MS_;
+        //LOGGER_INFO("BOTON PRESIONADO - %d ms", (int)button.counter);
     }
-
-    if (delayRead(&button.debounce_delay)) {
-        if (value) {
-            button.counter += BUTTON_PERIOD_MS_;
-        } else {
-            if (BUTTON_LONG_TIMEOUT_ <= button.counter)
-            {
-                ret = BUTTON_STATE_LONG;
-            }
-            else if (BUTTON_SHORT_TIMEOUT_ <= button.counter)
-            {
-                ret = BUTTON_STATE_SHORT;
-            }
-            else if (BUTTON_PULSE_TIMEOUT_ <= button.counter)
-            {
-                ret = BUTTON_STATE_PULSE;
-            }
-            button.counter = 0;
+    else
+    {
+        if(BUTTON_LONG_TIMEOUT_ <= button.counter)
+        {
+            ret = BUTTON_TYPE_LONG;
         }
+        else if(BUTTON_SHORT_TIMEOUT_ <= button.counter)
+        {
+            ret = BUTTON_TYPE_SHORT;
+        }
+        else if(BUTTON_PULSE_TIMEOUT_ <= button.counter)
+        {
+            ret = BUTTON_TYPE_PULSE;
+        }
+        button.counter = 0;
     }
     return ret;
 }
@@ -119,53 +122,37 @@ static button_state_t button_process_state_(bool value)
 void task_button(void* argument)
 {
     button_init_();
-    
+
     while(true)
     {
         GPIO_PinState button_state;
         button_state = HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN);
 
-        button_state_t state = button_process_state_(!button_state);
-        
-        if (state != BUTTON_STATE_NONE) {
-            // Crear evento del botón
-            button_event_t event = {
-                .state = state,
-                .timestamp = HAL_GetTick()
-            };
-            
-            // Determinar estado y prioridad para logging
-            const char* state_str;
-            // Convertir el estado del botón a evento de mensaje
-            msg_event_t msg_event;
-            switch (state) {
-                case BUTTON_STATE_PULSE:
-                    msg_event = MSG_EVENT_BUTTON_PULSE;
-                    state_str = "pulse";
-                    break;
-                case BUTTON_STATE_SHORT:
-                    msg_event = MSG_EVENT_BUTTON_SHORT;
-                    state_str = "short";
-                    break;
-                case BUTTON_STATE_LONG:
-                    msg_event = MSG_EVENT_BUTTON_LONG;
-                    state_str = "long";
-                    break;
-                default:
-                    state_str = "unknown";
-                    continue; // Saltar este evento
-            }
-            
-            // Loggear el evento del botón
-            LOGGER_INFO("Button %s press detected at tick %lu", 
-                     state_str, event.timestamp);
-            
-            // Enviar el evento al UI
-            ao_ui_send_event(msg_event);
+        button_type_t button_type = BUTTON_TYPE_NONE;
+        button_type = button_process_state_(!button_state);
+
+        switch (button_type) {
+            case BUTTON_TYPE_NONE:
+                break;
+            case BUTTON_TYPE_PULSE:
+                LOGGER_INFO("button pulse");
+                ao_ui_send_event(MSG_EVENT_BUTTON_PULSE);
+                break;
+            case BUTTON_TYPE_SHORT:
+                LOGGER_INFO("button short");
+                ao_ui_send_event(MSG_EVENT_BUTTON_SHORT);
+                break;
+            case BUTTON_TYPE_LONG:
+                LOGGER_INFO("button long");
+                ao_ui_send_event(MSG_EVENT_BUTTON_LONG);
+                break;
+            default:
+                LOGGER_INFO("button error");
+                break;
         }
 
-    vTaskDelay((TickType_t)(TASK_PERIOD_MS_ / portTICK_PERIOD_MS));
-  }
+        vTaskDelay(pdMS_TO_TICKS(TASK_PERIOD_MS_));
+    }
 }
 
 /********************** end of file ******************************************/

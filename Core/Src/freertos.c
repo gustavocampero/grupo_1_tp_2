@@ -20,7 +20,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
 #include "task.h"
-#include "timers.h"
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -51,15 +50,6 @@ static StackType_t xTimerTaskStackBuffer[configTIMER_TASK_STACK_DEPTH];
 /* USER CODE END Variables */
 
 /* Private function prototypes -----------------------------------------------*/
-
-/* USER CODE BEGIN TIMER_TASK_MEMORY */
-void vApplicationGetTimerTaskMemory(StaticTask_t **ppxTimerTaskTCBBuffer,
-                                  StackType_t **ppxTimerTaskStackBuffer,
-                                  uint32_t *pulTimerTaskStackSize) {
-    *ppxTimerTaskTCBBuffer = &xTimerTaskTCBBuffer;
-    *ppxTimerTaskStackBuffer = xTimerTaskStackBuffer;
-    *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
-}
 /* USER CODE BEGIN FunctionPrototypes */
 
 /* USER CODE END FunctionPrototypes */
@@ -68,6 +58,15 @@ void vApplicationGetTimerTaskMemory(StaticTask_t **ppxTimerTaskTCBBuffer,
 void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize );
 
 /* Hook prototypes */
+
+void vApplicationGetTimerTaskMemory(StaticTask_t **ppxTimerTaskTCBBuffer,
+                                  StackType_t **ppxTimerTaskStackBuffer,
+                                  uint32_t *pulTimerTaskStackSize)
+{
+    *ppxTimerTaskTCBBuffer = &xTimerTaskTCBBuffer;
+    *ppxTimerTaskStackBuffer = xTimerTaskStackBuffer;
+    *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
+}
 void configureTimerForRunTimeStats(void);
 unsigned long getRunTimeCounterValue(void);
 void vApplicationIdleHook(void);

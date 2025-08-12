@@ -86,6 +86,7 @@ static void task_(void *argument)
     {
       switch (msg.action) {
         case AO_LED_MESSAGE_ON:
+          vTaskDelay(pdMS_TO_TICKS(5)); // Small delay to avoid log corruption
           LOGGER_INFO("LED %s ENCENDIDO", ledColorToStr(msg.color));
           if (msg.callback) {
               msg.callback(&msg);
@@ -93,6 +94,7 @@ static void task_(void *argument)
           break;
 
         case AO_LED_MESSAGE_OFF:
+          vTaskDelay(pdMS_TO_TICKS(5)); // Small delay to avoid log corruption
           LOGGER_INFO("LED %s APAGADO", ledColorToStr(msg.color));
           if (msg.callback) {
               msg.callback(&msg);
@@ -129,8 +131,9 @@ void ao_led_init(void)
     configASSERT(hqueue != NULL);
     
     // Crear la tarea del LED
-    BaseType_t status = xTaskCreate(task_, "task_led", 128, NULL, tskIDLE_PRIORITY, NULL);
+    BaseType_t status = xTaskCreate(task_, "task_led", 256, NULL, tskIDLE_PRIORITY + 1, NULL);  // Increased stack and priority
     configASSERT(status == pdPASS);
+    LOGGER_INFO("AO LED initialized");
 }
 
 /********************** end of file ******************************************/

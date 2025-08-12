@@ -1,93 +1,67 @@
-/*
- * Copyright (c) 2023 Sebastian Bedin <sebabedin@gmail.com>.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from
- *    this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
- * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @file   : logger.h
- * @author : Sebastian Bedin <sebabedin@gmail.com>
- * @version	v1.0.0
+
+/**
+ * @file logger.h
+ * @brief Lightweight pub/sub logger: format once, fan-out to sinks.
  */
+#ifndef LOGGER_H
+#define LOGGER_H
 
-#ifndef INC_LOGGER_H_
-#define INC_LOGGER_H_
+#include <stddef.h>
+#include <stdarg.h>
+#include <stdint.h>
 
-/********************** CPP guard ********************************************/
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/********************** inclusions *******************************************/
+// Macro definitions for different log levels
+#define LOGGER_DEBUG(...) log_printf(LOG_DEBUG, __VA_ARGS__)
+#define LOGGER_INFO(...)  log_printf(LOG_INFO, __VA_ARGS__)
+#define LOGGER_WARN(...)  log_printf(LOG_WARN, __VA_ARGS__)
+#define LOGGER_ERROR(...) log_printf(LOG_ERROR, __VA_ARGS__)
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
-
-/********************** macros ***********************************************/
-
-#define LOGGER_CONFIG_ENABLE                    (1)
-#define LOGGER_CONFIG_MAXLEN                    (64)
-#define LOGGER_CONFIG_USE_SEMIHOSTING           (1)
-
-#if 1 == LOGGER_CONFIG_ENABLE
-#define LOGGER_LOG(...)\
-    taskENTER_CRITICAL();\
-    {\
-        logger_msg_len = snprintf(logger_msg, (LOGGER_CONFIG_MAXLEN - 1), __VA_ARGS__);\
-        logger_log_print_(logger_msg);\
-    }\
-    taskEXIT_CRITICAL()
-#else
-#define LOGGER_LOG(...)
+#ifndef LOG_MAX_SUBSCRIBERS
+#  define LOG_MAX_SUBSCRIBERS    4
 #endif
 
-#define LOGGER_INFO(...)\
-    LOGGER_LOG("[info] ");\
-    LOGGER_LOG(__VA_ARGS__);\
-    LOGGER_LOG("\n");
+#ifndef LOG_MAX_MESSAGE_LENGTH
+#  define LOG_MAX_MESSAGE_LENGTH 256
+#endif
 
-#define GET_NAME(var)  #var
+#ifndef LOG_USE_FREERTOS
+#  define LOG_USE_FREERTOS 1
+#endif
 
-/********************** typedef **********************************************/
+#ifndef LOG_INCLUDE_TIMESTAMP
+#  define LOG_INCLUDE_TIMESTAMP 0
+#endif
 
-extern char* const logger_msg;
-extern int logger_msg_len; // only for debug information
+typedef enum {
+    LOG_DEBUG = 0,
+    LOG_INFO,
+    LOG_WARN,
+    LOG_ERROR,
+    LOG_NONE
+} log_level_t;
 
-/********************** external functions declaration ***********************/
+/** Sink callback: must be fast and non-blocking. */
+typedef void (*log_sink_fn)(log_level_t level,
+                            const char* msg,
+                            size_t len,
+                            void* user_ctx);
 
-void logger_log_print_(char* const msg);
+void   log_init(void);
+int    log_subscribe(log_sink_fn fn, log_level_t min_level, void* user_ctx);
+int    log_unsubscribe(int handle);
+size_t log_printf(log_level_t level, const char* fmt, ...);
+size_t log_vprintf(log_level_t level, const char* fmt, va_list ap);
+const char* log_level_str(log_level_t level);
 
-/********************** End of CPP guard *************************************/
+/* Optional hook (weak): timestamp in ms if LOG_INCLUDE_TIMESTAMP != 0 */
+uint32_t log_get_timestamp_ms(void);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* INC_LOGGER_H_ */
-/********************** end of file ******************************************/
-
+#endif /* LOGGER_H */

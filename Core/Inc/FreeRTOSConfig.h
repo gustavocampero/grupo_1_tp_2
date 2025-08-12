@@ -54,6 +54,10 @@
 /* USER CODE BEGIN 0 */
   extern void configureTimerForRunTimeStats(void);
   extern unsigned long getRunTimeCounterValue(void);
+#define configUSE_TIMERS                     1
+#define configTIMER_TASK_PRIORITY           (2)
+#define configTIMER_QUEUE_LENGTH            10
+#define configTIMER_TASK_STACK_DEPTH        (configMINIMAL_STACK_SIZE * 2)
 /* USER CODE END 0 */
 #endif
 #define configENABLE_FPU                         0
@@ -78,10 +82,6 @@
 #define configQUEUE_REGISTRY_SIZE                8
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION  1
 #define configRECORD_STACK_HIGH_ADDRESS          1
-#define configUSE_TIMERS                     1
-#define configTIMER_TASK_PRIORITY           (2)
-#define configTIMER_QUEUE_LENGTH            10
-#define configTIMER_TASK_STACK_DEPTH        (configMINIMAL_STACK_SIZE * 2)
 /* USER CODE BEGIN MESSAGE_BUFFER_LENGTH_TYPE */
 /* Defaults to size_t for backward compatibility, but can be changed
    if lengths will always be less than the number of bytes in a size_t. */

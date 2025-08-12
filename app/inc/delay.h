@@ -9,7 +9,7 @@ typedef struct
 {
 	tick_t startTime;
 	tick_t duration;
-	tick_t running;
+	bool_t running;  // Fixed: was tick_t, should be bool_t
 } delay_t;
 
 void delayInit(delay_t* delay, tick_t duration);

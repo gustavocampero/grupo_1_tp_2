@@ -37,6 +37,9 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "logger.h"
+#include "logger_sink_uart.h"
+#include "ao_uart.h"
+#include "port_uart.h"
 #include "dwt.h"
 #include "board.h"
 
@@ -59,20 +62,42 @@
 /********************** external functions definition ************************/
 void app_init(void)
 {
+  // 1) Hardware initialization for UART (clocks/GPIO/USART/DMA should be configured by CubeMX)
+  port_uart_hw_init();
+
+  // 2) Create AO UART (queue/stream + task)
+  ao_uart_create();
+
+  // 3) Initialize logger sink mutex
+  logger_sink_uart_init();
+
+  // 4) Initialize logger and subscribe UART sink
+  log_init();
+  (void)log_subscribe(logger_sink_uart, LOG_INFO, NULL);
+
+  // 5) Initialize cycle counter
+  cycle_counter_init();
+
+  // 6) Initialize application objects
   ao_ui_init();
   ao_led_init();
 
+  // 7) Create application tasks
+  static TaskHandle_t button_task_handle = NULL;
   BaseType_t status;
 
-  status = xTaskCreate(task_button, "task_button", 128, NULL, 1, NULL);
-  while (pdPASS != status)
+  status = xTaskCreate(task_button, "task_button", 512, NULL, tskIDLE_PRIORITY + 3, &button_task_handle);
+  if (pdPASS != status)
   {
-    // error
+    LOGGER_ERROR("Failed to create button task!");
+    Error_Handler();
+  }
+  else
+  {
+    LOGGER_INFO("Button task created successfully");
   }
 
-  LOGGER_INFO("app init");
-
-  cycle_counter_init();
+  LOGGER_INFO("app init completed");
 }
 
 /********************** end of file ******************************************/
