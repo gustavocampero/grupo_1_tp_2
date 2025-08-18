@@ -62,6 +62,7 @@ static GPIO_TypeDef* led_port_[] = {LED_RED_PORT, LED_GREEN_PORT,  LED_BLUE_PORT
 static uint16_t led_pin_[] = {LED_RED_PIN,  LED_GREEN_PIN, LED_BLUE_PIN };
 static bool task_led_running = false; // sólo 1 hilo para manejar los leds
 static QueueHandle_t hqueue;
+static SemaphoreHandle_t led_mutex = NULL;
 
 /********************** external data definition *****************************/
 
@@ -85,10 +86,10 @@ static void task_(void *argument)
   while (true)
   {
     ao_led_message_t* msg;
-    portENTER_CRITICAL(); // Entró en CRITICAL para procesar una queue vacia sin que cambie de contexto
+    if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {} //  tomo el mutex
     if (pdPASS == xQueueReceive(hqueue, (void*)&msg, 0))
     {
-      portEXIT_CRITICAL(); // Si la queue tiene datos puede cambiar de contexto
+      xSemaphoreGive(led_mutex);
       switch (msg->action) {
         case AO_LED_MESSAGE_ON:
           HAL_GPIO_WritePin(led_port_[msg->color], led_pin_[msg->color], GPIO_PIN_SET);
@@ -115,10 +116,9 @@ static void task_(void *argument)
           break;
       }
     }else{
-    	// LOGGER_INFO("Borrando tarea leds");
     	task_led_running = false;
+    	xSemaphoreGive(led_mutex); // Libero el mutex antes de eliminar la tarea
     	vTaskDelete(NULL);
-    	portEXIT_CRITICAL(); // Termina de procesar la queue vacia
     }
     vTaskDelay((TickType_t)(50 / portTICK_PERIOD_MS)); // Si no, la button_task se bloquea hasta que se termine de procesar la accion
   }
@@ -132,21 +132,19 @@ BaseType_t ao_led_create_task(){
 
 bool ao_led_send(ao_led_message_t* msg)
 {
-    bool ret = false;
-	if(xQueueSend(hqueue,(void*)&msg,0) == pdPASS) {
+	if (xSemaphoreTake(led_mutex, portMAX_DELAY) == pdTRUE) {
 		if(!task_led_running) {
 			if(ao_led_create_task() != pdPASS) {
 				LOGGER_INFO("ERROR CREANDO TAREA LEDS!");
 			}else {
 				// LOGGER_INFO("Tarea Leds creada");
 				task_led_running = true;
-				ret = true;
 			}
-		}else {
-			ret = true;
 		}
+		xSemaphoreGive(led_mutex);
 	}
-	return ret;
+
+	return (xQueueSend(hqueue,(void*)&msg,0) == pdPASS);
 }
 
 void ao_led_init()
@@ -155,6 +153,12 @@ void ao_led_init()
   if(NULL == hqueue){
 	  LOGGER_INFO("ERROR: ao_led_init xQueueCreate");
 	  while (true){/*ERROR*/}
+  }
+
+  led_mutex = xSemaphoreCreateMutex();
+  if (NULL == led_mutex) {
+	  LOGGER_INFO("ERROR: ao_led_init xSemaphoreCreateMutex");
+	  while (true) {};
   }
 
 }
